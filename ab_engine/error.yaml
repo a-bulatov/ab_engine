@@ -1,0 +1,117 @@
+- code: NEQ_ROWS # код для вызова из функции raise_error
+  http: 501 # код для возврата по HTTP
+  msg: Количество строк {src1} не соответствует {src2} # Сообщение в которое будут подставлены kwargs из raise_error
+- code: TIMEOUT_ALRDY_DEF
+  class: Exception # задает класс исключения. По умолчанию это Error из библиотеки
+  msg: Время ожидания результата уже задано
+- code: DEF_STR_FABRIC
+  msg: Фабрика строк уже определена в {src}
+- code: DB_ALRDY_DEF
+  msg: Соединение с БД уже определено
+- code: PMT_BEF_OPT
+  msg: Параметры должны быть заданы перед опциями
+- code: NA_DB
+  class: ValueError
+  msg: Не задано соединение с БД {connection}
+- code: NOT_CONV_DICT_LIST
+  msg: "{data} не преобразуется в список или словарь"
+- code: BAD_LIMIT_OFFSET
+  msg: Ограничения страницы не корректны
+- code: PAGE_ALRDY_DEF
+  msg: Ограничения страницы могут быть заданы только раз
+- code: NO_ARG_N
+  msg: В аргументах нет параметра с индексом {n}
+- code: REG_BAD_PLUG_DIR_DFLT
+  class: RuntimeError
+  msg: При регистрации {name}->{defs} не найден каталог плагинов по умолчанию
+- code: REG_PLUG_NOT_FOUND
+  class: RuntimeError
+  msg: Не найден плагин-модуль {module} для регистрации функции {function}
+- code: FN_NOT_FOUND
+  http: 404
+  msg: Функция {method} не найдена
+- code: BAD_FN_PARAMS
+  class: RuntimeError
+  msg: Ошибка параметров регистрации функции {name} {defs}
+### Ошибки JsonRPC
+- code: -32700
+  msg: Ошибка разбора сообщения # "Parse error"
+- code: -32600
+  msg: Недопустимый запрос # "Invalid Request"
+- code: -32601
+  msg: Метод не найден # "Method not found"
+- code: -32602
+  msg: Недопустимые параметры # "Invalid params"
+- code: -32603
+  msg: Внутренняя ошибка # "Internal error"
+################
+- code: BAD_RPC_FORMAT
+  class: ValueError
+  msg: Неизвестный формат параметров {name}
+- code: BAD_FORMAT
+  class: ValueError
+  msg: Неизвестный формат {format_name}
+- code: BAD_CONFIG_PATH
+  class: AttributeError
+  msg: Не задан путь к файлу конфигурации
+- code: INFO_LOG_START
+  msg: Настройки логирования инициализированы
+- code: ATTR_NOT_FOUND
+  class: AttributeError
+  msg: Не найден атрибут {name}
+- code: BAD_LOG_HANDLER
+  msg: Не найден обработчик логов {handler}
+- code: NA_FILE_NAME
+  class: Exception
+  msg: Не указано имя файла
+- code: NA_DB_IN_CONFIG
+  class: AttributeError
+  msg: В конфигурации не определено соединение с БД
+- code: NA_TABLE
+  msg: Таблица {name} не найдена
+- code: NA_PK
+  msg: Таблица {name} не имеет ключа, позволяющего её редактировать
+- code: NOT_ERD_DT
+  msg: Редактирование типа данных {name} не поддерживается
+- code: NOT_LFIELD
+  msg: В левой части выражения должно быть поле таблицы
+- code: BAD_OP_FOR
+  msg: Операция {op} недопустима для {name}
+- code: BAD_V_COND
+  msg: Значение {v} не может быть использовано в выражении
+- code: EXPR_ERROR
+  msg: Ошибка разбора выражения {x}
+- code: NA_FIELD
+  msg: Поля {field} нет в таблице {table}
+- code: BAD_CURSOR
+  msg: Ошибка курсора {table}
+- code: FIELD_NOT_FOUND
+  msg: Поле {name} не найдено
+- code: ER_KEY_LST
+  msg: Ошибка формата списка ключей
+- code: TMR_WO_CALLBACK
+  msg: Обработчик таймера {name} не задан
+  class: RuntimeError
+- code: TMR_ARDY_STARTED
+  msg: Таймер {name} уже запущен
+  class: RuntimeError
+- code: TMR_ARDY_STOPPED
+  msg: Таймер {name} уже остановлен
+  class: RuntimeError
+- code: TMR_ARDY_EXISTS
+  msg: Повтор имени таймера {name}
+  class: ValueError
+- code: TMR_NOT_EXISTS
+  msg: Не найден таймер {name}
+  class: ValueError
+- code: NOT_NULL
+  msg: Значение {name} не может быть Null
+  class: ValueError
+- code: ENV_ATTR_NOT_EXISTS
+  msg: В окружении нет параметра {name}
+- code: ENV_CONTEXT_EXISTS
+  msg: Контекст (async with) уже создан
+  class: RuntimeError
+- code: BAD_RPC_METHOD
+  msg: Имя метода содержит недопустимое значение
+  class: ValueError
