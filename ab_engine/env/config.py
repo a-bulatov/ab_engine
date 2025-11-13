@@ -134,6 +134,7 @@ class Config:
                         dest.update(item)
                     else:
                         data[x] = item
+
         if not Config._settings:
             Config._settings = {}
         if env_map:
@@ -160,6 +161,10 @@ class Config:
             del Config._settings["timers"]
         else:
             self._timers = None
+
+        x = Config._settings.get("database")
+        if isinstance(x, dict) and "defaults" not in Config._settings:
+            Config._settings["defaults"]["database"] = tuple(x.keys())[0]
 
     @staticmethod
     def _cast(value, to_type):
@@ -231,7 +236,7 @@ class Config:
         query += f", {parent_id} from {env}"
         try:
             from .db_context import DB_ENV, TUPLE
-        except:
+        except Exception as e:
             from db_context import DB_ENV, TUPLE
         env = DB_ENV(connection)
 

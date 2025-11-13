@@ -1,0 +1,7 @@
+- code: ERROR # код для вызова из функции raise_error
+  http: 444 # код для возврата для HTTP. можно не указывать
+  msg: В {place} у объекта {name} случилось {what} # Сообщение в которое будут подставлены kwargs из raise_error
+  class: Error # задает класс исключения. По умолчанию это Error из библиотеки (т.е. Error можно было нре указывать)
+- code: OTHER_ERROR
+  class: Exception
+  msg: Еще ошибка

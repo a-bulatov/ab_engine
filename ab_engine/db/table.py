@@ -365,7 +365,8 @@ class Table:
         """
         переход на первую запись курсора
         """
-        await self.seek(0)
+        self._page = await self(Table._FILTER, PAGE(self._page_size + 1, 0))
+        self._ptr = self._offset = 0
         return not self.EOF
 
     async def last(self):

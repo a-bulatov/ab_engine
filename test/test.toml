@@ -1,0 +1,13 @@
+[auth]
+user = "123" # id пользователя по умолчанию
+
+[timers]
+A = 1
+B = 15
+
+[defaults]
+database = "db"
+plugin_path = "./"
+
+[database]
+db = "postgresql://localhost:5432/postgres?user=postgres&password=postgres"

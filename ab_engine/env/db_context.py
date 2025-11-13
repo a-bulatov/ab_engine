@@ -1,5 +1,5 @@
 from typing import Callable, Optional
-from ..db import DB, sql, JSON, CALLBACK
+from ..db import DB, sql, JSON, CALLBACK, TUPLE
 from .config import Config, LogLevel
 from json5 import loads, dumps
 from ..db.table import EnvTable
@@ -43,10 +43,7 @@ class DB_ENV:
         if db_params:
             self._db_params.update(db_params)
         self._params.update(kwargs)
-        if isinstance(connection, DB_ENV):
-            connection = connection.connection_string
-        elif isinstance(connection, DB):
-            connection = DB.connection.connection_string
+
         if "://" not in connection:
             connection = Config().db_connection(connection)
         if "{" in connection and connection.endswith("}"):

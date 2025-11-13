@@ -11,7 +11,7 @@ from typing import Callable
 
 _DRIVERS_ = {}
 _LIMITS_ = {}
-
+_CFG_ = None
 
 class Option(ABC):
 
@@ -68,6 +68,12 @@ class DB(Option):
                     self._params[x.replace("$",".")] = v
         else:
             self._params = {}
+        if "://" not in connection_string:
+            global _CFG_
+            if _CFG_ is None:
+                from ..env import Config
+                _CFG_ = Config()
+            connection_string = _CFG_.db_connection(connection_string)
         driver, connection_string = connection_string.split("://", 1)
 
         connection_string, conn_params = f"{connection_string}?".split("?",1)

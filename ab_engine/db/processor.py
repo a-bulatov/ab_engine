@@ -44,9 +44,7 @@ async def sql(query:str, *args, **kwargs):
             raise_error("PMT_BEF_OPT")
     if process:
         args = args[:process.pop(0)]
-    if db is None and not CONNECTION:
-        raise_error("NA_DB")
-    elif db is None:
+    if db is None:
         db = DB(CONNECTION)
         in_self = True
     else:
@@ -56,6 +54,8 @@ async def sql(query:str, *args, **kwargs):
     if callback:
         kwargs["__PARAM_CALLBACK_GETTER"] = callback
     query = await db.connection.parse_query(query, *args, **kwargs)
+    if page:
+        query = await page(db.connection, query)
     if callback is not None:
         query = await callback(query)
     try:
