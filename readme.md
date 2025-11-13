@@ -165,12 +165,16 @@ create table config(
 ## Управление таймерами
 
 Таймеры определяются в секции timers файла конфигурации. Для управления таймеры доступны в свойстве Config().timers
+
 Чтобы интервалы использовались в программе, таймеры должны быть проинициализированы методом Config().timers["имя таймера"].init:
 init(callback, interval_type = TimerInterval.SECOND, interval: int = 0, immediately_start=True)
 
 > callbac       - обработчик таймера, может быть как async, так и синхронным
+> 
 > interval_type - тип интервала (единица времени) MILLISECOND, SECOND, MINUTE, HOUR, DAY по умолчанию SECOND
+> 
 > interval      - количество единиц времени, если задан, то перекроет считанное из конфига
+> 
 > immediately_start - означает, что calback будет запущен сразу после инициализации, иначе через интервал
 
 например:
@@ -179,11 +183,13 @@ Config().timers["X"].init(callback, interval_type = TimerInterval.MINUTE):
 callbac должен быть функцией вида:
 
 > def callback(name, prev_time):
+> 
 > ...
 
 или:
 
 > async def callback(name, prev_time):
+> 
 > ...
 
 в параметр **name** передается в имя таймера, в **prev_time** предыдущее время запуска, первый раз **prev_time = None**
