@@ -13,6 +13,13 @@ _DRIVERS_ = {}
 _LIMITS_ = {}
 _CFG_ = None
 
+def _check_cfg():
+    global _CFG_
+    if _CFG_ is None:
+        from ..env import Config
+        _CFG_ = Config()
+    return _CFG_
+
 class Option(ABC):
 
     @staticmethod
@@ -69,11 +76,7 @@ class DB(Option):
         else:
             self._params = {}
         if "://" not in connection_string:
-            global _CFG_
-            if _CFG_ is None:
-                from ..env import Config
-                _CFG_ = Config()
-            connection_string = _CFG_.db_connection(connection_string)
+            connection_string = _check_cfg().db_connection(connection_string)
         driver, connection_string = connection_string.split("://", 1)
 
         connection_string, conn_params = f"{connection_string}?".split("?",1)
@@ -83,6 +86,8 @@ class DB(Option):
             if "driver_path" in conn_params:
                 driver_path = conn_params["driver_path"]
                 del conn_params["driver_path"]
+            else:
+                driver_path = _check_cfg().defaults.get("db_driver_path")
             conn_params = "?" + "&".join(conn_params)
         connection_string += conn_params
 

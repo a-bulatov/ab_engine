@@ -78,10 +78,10 @@ class Field:
 
     def __init__(self, defs: dict, table):
         self._table = table
-        self._p_type = defs.get("python type")
+        self._p_type = defs.get("python_type")
         self._db_type = defs.get("type")
         self._name = defs.get("name")
-        self._not_null = defs.get("not null", False)
+        self._not_null = defs.get("not_null", False)
         x = defs.get("field")
         if x and self._name!=x:
             self._in_db_name=defs.get("field")
@@ -499,9 +499,9 @@ class Table:
             return
         #### запись **kwargs -----------------------------------------------------------------------------------
         key = ""
-        if self.key:
-            chk = {x:kwargs[x] for x in self.key if x in kwargs}
-            if len(chk)==len(self.key):
+        if self._key_fields:
+            chk = {x:kwargs[x] for x in self._key_fields if x in kwargs}
+            if len(chk)==len(self._key_fields):
                 for x in chk:
                     if key:
                         key += " and "
@@ -512,7 +512,7 @@ class Table:
             if chk:
                 # запись найдена - обновление
                 for x in kwargs:
-                    if x in self.key:
+                    if x in self._key_fields:
                         continue
                     if qry:
                         qry += ",\n"

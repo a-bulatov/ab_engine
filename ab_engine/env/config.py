@@ -161,9 +161,10 @@ class Config:
             del Config._settings["timers"]
         else:
             self._timers = None
-
+        if "defaults" not in Config._settings:
+            Config._settings["defaults"] = {}
         x = Config._settings.get("database")
-        if isinstance(x, dict) and "defaults" not in Config._settings:
+        if isinstance(x, dict):
             Config._settings["defaults"]["database"] = tuple(x.keys())[0]
 
     @staticmethod

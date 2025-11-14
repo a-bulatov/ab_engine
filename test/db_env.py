@@ -58,5 +58,12 @@ async def main():
     x = await t(OBJECT, [t.row.id == 4, t.row.id == 2])
     print(x)
 
+    await t.first()
+    x = "record updated"
+    if t.row.v.value == x:
+        x = "another update"
+    t.row.v.value = x  # change the value of v in the current record
+    await env.commit() # commit changes without context
+
 if __name__ == '__main__':
     run_async(main())

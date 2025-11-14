@@ -73,7 +73,7 @@ class DB_ENV:
         """
         if subscribe:
             self._on_commit.add(callback)
-        if callback in self._on_commit:
+        elif callback in self._on_commit:
             self._on_commit.remove(callback)
 
     def __getitem__(self, key):
