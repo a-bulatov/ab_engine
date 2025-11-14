@@ -311,3 +311,14 @@ class Driver(ABC):
         if offset:
             query = f"{query}\noffset {offset}"
         return query
+
+    async def get_position(self, table, key, filter):
+        """
+        возвращает номер первой строки table, отсортированной по key, соответствующей фильтру filter
+        """
+        n_field = "co_lu_mn__po_si_ti_on__by__ke_y"
+        qry = f"""select row_number() over (order by {key}) {n_field}, t.* from {table} t"""
+        qry = f"""select {n_field} from ({qry}) x where {filter} order by {n_field}"""
+        x = await self.sql(qry, one_row=True, row_factory=RowFactory.TUPLE)
+        if x:
+            return x[0]

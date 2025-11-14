@@ -870,6 +870,9 @@ class Table:
 
     async def seek(self, position):
         """устанавливает курсор на заданную строку"""
+        
+    async def seek(self, *args, **kwargs):
+        """устанавливает курсор на строку, соответствующую фильтру заданному в *args, **kwargs"""
 
     async def first(self):
         """

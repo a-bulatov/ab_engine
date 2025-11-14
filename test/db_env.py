@@ -65,5 +65,8 @@ async def main():
     t.row.v.value = x  # change the value of v in the current record
     await env.commit() # commit changes without context
 
+    await t.seek(id=7)
+    print(t.row)
+
 if __name__ == '__main__':
     run_async(main())

@@ -312,9 +312,24 @@ class Table:
         return self._offset + (self._ptr or 0)
 
 
-    async def seek(self, position):
+    async def seek(self, *args, **kwargs):
+        if kwargs or len(args) != 1 or (len(args) > 1 and not isinstance(args[0], int)):
+            if self._filter:
+                self._filter = ""
+                await self.first()
+            f = self._gen_filter(*args, **kwargs)
+            position = await self._db.connection.get_position(self._table, ','.join(self._key_fields), f)
+            if position:
+                position -= 1
+            else:
+                position = 0
+        else:
+            position = args[0]
         """устанавливает курсор на заданную строку"""
-        if position < 0:
+        if position == 0:
+            await self.first()
+            return True
+        elif position < 0:
             cnt = await sql(f"select count(*) from {self._table} {self._filter}", self._db, ONE)
             position = cnt + position
             if position < 0:
@@ -327,15 +342,16 @@ class Table:
             self._ptr = need_ptr
             if cnt is not None and self._auto_close_conn:
                 await self._db.connection.rollback()
-            return
+            return True
         if self._page:
             await self.save()
         self._page = await self(Table._FILTER, PAGE(self._page_size + 1, need_ofs))
         if not self._page:
             await self.last()
-            return
+            return False
         self._ptr = need_ptr
         self._offset = need_ofs
+        return True
 
     async def next(self):
         """
