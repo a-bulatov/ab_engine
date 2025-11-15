@@ -11,7 +11,7 @@ async def with_transaction():
 
 async def main():
     Config("test.toml")
-    #await with_transaction()
+    await with_transaction()
 
     cnt = await sql("select count(*) from t1", ONE)
     print(cnt)
@@ -54,18 +54,23 @@ async def main():
     x = await t(TUPLE, PAGE(limit=4))
     print(x)
 
+    await t.filter() # clear filter and seek to first record
+
     # filtered records as named tuple
     x = await t(OBJECT, [t.row.id == 4, t.row.id == 2])
     print(x)
 
-    await t.first()
     x = "record updated"
     if t.row.v.value == x:
         x = "another update"
     t.row.v.value = x  # change the value of v in the current record
+    x = t.row.id.value
     await env.commit() # commit changes without context
 
-    await t.seek(id=7)
+    await t.seek(id=7) # seek to row with id = 7
+    print(t.row)
+
+    await t.seek(id=x)  # seek to row with id = x
     print(t.row)
 
 if __name__ == '__main__':

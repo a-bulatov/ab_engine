@@ -194,3 +194,10 @@ class DB_ENV:
             await self.__aenter__()
         t = await EnvTable.create(name, self, page_size=page_size, async_delay=async_delay)
         return t
+
+    @staticmethod
+    async def garbage_collect():
+        """
+        сборка мусора и закрытие подвисших соединений
+        """
+        DB.garbage_collect()

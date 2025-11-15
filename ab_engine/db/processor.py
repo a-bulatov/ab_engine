@@ -49,6 +49,7 @@ async def sql(query:str, *args, **kwargs):
         in_self = True
     else:
         in_self = False
+    await db.garbage_collect(False)
     one_row = one_row.one_row if one_row else False
     row_factory = row_factory.row_factory if row_factory and row_factory.row_factory != RowFactory.ANY else RowFactory.DICT
     if callback:

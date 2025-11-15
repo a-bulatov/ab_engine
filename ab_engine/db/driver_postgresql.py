@@ -4,8 +4,6 @@ from driver import Driver as BaseDriver, RowFactory
 from psycopg import AsyncConnection
 import psycopg.rows as rows
 
-class PGError(Exception):
-    pass
 
 _FACTORY_ = {
     RowFactory.ANY.value: rows.tuple_row,
@@ -56,14 +54,7 @@ class Driver(BaseDriver):
         return self._conn is not None
 
     async def begin(self):
-        if self._conn:
-            raise PGError("Transaction already open")
-        if x:=self._on_open_close:
-            params = await x(False)
-            if not params:
-                params = {}
-        else:
-            params = {}
+        params = await self._before_open()
         self._conn = await AsyncConnection.connect(self.connection_string)
         for x in params:
             if x == "TIMEZONE":
@@ -92,17 +83,15 @@ class Driver(BaseDriver):
 
     async def commit(self):
         if not self._conn:
-            raise PGError("Transaction is not open")
+            raise RuntimeError("Transaction is not open")
         await self._conn.commit()
         await self.rollback()
 
     async def rollback(self):
         if not self._conn:
             return
-        if x:=self._on_open_close:
-            await x(True)
         await self._conn.close()
-        self._conn = None
+        await super().rollback()
 
     @staticmethod
     def _specify_type(defs):

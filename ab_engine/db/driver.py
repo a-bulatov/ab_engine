@@ -51,6 +51,17 @@ class Driver(ABC):
         """возвращает открыта ли транзакция"""
         return self._conn is not None
 
+    async def _before_open(self)->dict:
+        if self._conn:
+            raise RuntimeError("Transaction already open")
+        if x := self._on_open_close:
+            params = await x(False)
+            if not params:
+                params = {}
+        else:
+            params = {}
+        return params
+
     @abstractmethod
     async def begin(self):
         """открывает транзакцию"""
@@ -75,6 +86,8 @@ class Driver(ABC):
 
     async def rollback(self):
         """откатывает транзакцию и закрывает соединение"""
+        if x:=self._on_open_close:
+            await x(True)
         self._conn = None
 
     @staticmethod

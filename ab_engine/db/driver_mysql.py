@@ -7,11 +7,6 @@ except ImportError:
     raise Exception("For use MySQL driver, you need to install mysql.connector\n$ pip install mysql-connector-python")
 from collections import namedtuple
 
-
-class MySQLError(Exception):
-    ...
-
-
 def as_is(description, data):
     return data
 
@@ -74,16 +69,7 @@ class Driver(BaseDriver):
             self._conn_params[k] = v
 
     async def begin(self):
-        if self._conn:
-            raise MySQLError("Transaction already open")
-
-        if x:=self._on_open_close:
-            params = await x(False)
-            if not params:
-                params = {}
-        else:
-            params = {}
-
+        await self._before_open()
         self._conn = await connect(**self._conn_params)
 
     async def sql(self, query, one_row=False, row_factory=RowFactory.DICT):
@@ -110,7 +96,7 @@ class Driver(BaseDriver):
 
     async def commit(self):
         if not self._conn:
-            raise MySQLError("Transaction is not open")
+            raise RuntimeError("Transaction is not open")
         await self._conn.commit()
         await self.rollback()
 

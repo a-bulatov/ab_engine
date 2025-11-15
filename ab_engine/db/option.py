@@ -8,17 +8,23 @@ from asyncio import BoundedSemaphore, wait_for, TimeoutError
 from ..error import raise_error
 from inspect import iscoroutinefunction
 from typing import Callable
+from gc import collect as garbage_collect
 
+DRIVER_CLASSES = {}
 _DRIVERS_ = {}
 _LIMITS_ = {}
 _CFG_ = None
 
-def _check_cfg():
+def _check_cfg(key=""):
     global _CFG_
     if _CFG_ is None:
         from ..env import Config
         _CFG_ = Config()
-    return _CFG_
+    if key=="":
+        return
+    if _CFG_.hasattr("defaults"):
+        return _CFG_.defaults.get(key)
+
 
 class Option(ABC):
 
@@ -61,6 +67,8 @@ class DB(Option):
     """
     Соединение с БД
     """
+    _TRASH_ = set()
+
     def __init__(self, connection_string: str):
         connection_string = connection_string.strip()
         if connection_string.startswith("jdbc:"):
@@ -76,34 +84,39 @@ class DB(Option):
         else:
             self._params = {}
         if "://" not in connection_string:
-            connection_string = _check_cfg().db_connection(connection_string)
-        driver, connection_string = connection_string.split("://", 1)
+            _check_cfg()
+            connection_string = _CFG_.db_connection(connection_string)
+        driver_name, connection_string = connection_string.split("://", 1)
 
         connection_string, conn_params = f"{connection_string}?".split("?",1)
+
+        driver = DRIVER_CLASSES.get(driver_name)
         driver_path = None
         if conn_params:
             conn_params = conn_params[:-1].split("&")
             if "driver_path" in conn_params:
                 driver_path = conn_params["driver_path"]
                 del conn_params["driver_path"]
-            else:
-                driver_path = _check_cfg().defaults.get("db_driver_path")
             conn_params = "?" + "&".join(conn_params)
         connection_string += conn_params
-
-        if driver_path is None:
-            driver_path = Path(__file__).parent / f"driver_{driver}.py"
-        elif isinstance(driver_path, str):
-            driver_path = Path(driver_path) / f"driver_{driver}.py"
-        m = driver_path.name
-        driver_path = str(driver_path)
-        if driver_path in _DRIVERS_:
-            driver = _DRIVERS_[driver_path]
+        if driver is None:
+            if driver_path is None:
+                driver_path = _check_cfg("db_driver_path")
+            if driver_path is None:
+                driver_path = Path(__file__).parent / f"driver_{driver_name}.py"
+            elif isinstance(driver_path, str):
+                driver_path = Path(driver_path) / f"driver_{driver_name}.py"
+            m = driver_path.name
+            driver_path = str(driver_path)
+            if driver_path in _DRIVERS_:
+                driver = _DRIVERS_[driver_path]
+            else:
+                m = m.split(".",1)[0] + f"_{len(_DRIVERS_)}"
+                m = SourceFileLoader(m, driver_path ).load_module()
+                driver = m.Driver
+                _DRIVERS_[driver_path] = driver
         else:
-            m = m.split(".",1)[0] + f"_{len(_DRIVERS_)}"
-            m = SourceFileLoader(m, driver_path ).load_module()
-            driver = m.Driver
-            _DRIVERS_[driver_path] = driver
+            driver_path = ""
         if "LIMIT" in self._params:
             m = self._params["LIMIT"]
             del self._params["LIMIT"]
@@ -132,6 +145,18 @@ class DB(Option):
     @property
     def connection(self)->Driver:
         return self._connection
+
+    def __del__(self):
+        if self.connection is not None and self.connection.in_transaction:
+            DB._TRASH_.add(self.connection)
+
+    @classmethod
+    async def garbage_collect(cls, clear_mem=True):
+        if clear_mem:
+            garbage_collect()
+        while len(DB._TRASH_)>0:
+            x = DB._TRASH_.pop()
+            await x.rollback()
 
 class TIMEOUT(Option):
 

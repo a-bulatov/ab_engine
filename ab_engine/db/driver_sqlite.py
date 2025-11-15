@@ -5,10 +5,6 @@ from sqlite3 import connect as db_connect
 from collections import namedtuple, OrderedDict
 
 
-class SLTError(Exception):
-    ...
-
-
 def dict_factory(cursor, row):
     fields = [column[0] for column in cursor.description]
     return {key: value for key, value in zip(fields, row)}
@@ -57,16 +53,7 @@ class Driver(BaseDriver):
         super().__init__(connection_string, on_open_close)
 
     async def begin(self):
-        if self._conn:
-            raise SLTError("Transaction already open")
-
-        if x:=self._on_open_close:
-            params = await x(False)
-            if not params:
-                params = {}
-        else:
-            params = {}
-
+        await self._before_open()
         self._conn = db_connect(self.connection_string)
 
     async def sql(self, query, one_row=False, row_factory=RowFactory.DICT):
@@ -89,17 +76,15 @@ class Driver(BaseDriver):
 
     async def commit(self):
         if not self._conn:
-            raise SLTError("Transaction is not open")
+            raise RuntimeError("Transaction is not open")
         self._conn.commit()
         await self.rollback()
 
     async def rollback(self):
         if not self._conn:
             return
-        if x:=self._on_open_close:
-            await x(True)
         self._conn.close()
-        self._conn = None
+        await super().rollback()
 
     async def table_struct(self, table_name) -> dict:
         defs = await self.sql(f"select sql from sqlite_master where type='table' and name='{table_name}'", one_row=True)
