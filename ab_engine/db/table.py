@@ -10,7 +10,8 @@ class ROW(ReadOnlyPropDict):
     def __str__(self):
         s = ""
         for x in self._data:
-            s += f" {x}: {str(self._data[x].value).replace("\t","    ")} \t"
+            v = str(self._data[x].value).replace("\t","    ")
+            s += f" {x}: {v}" + "\t"
         return s[:-1]
 
     def __getitem__(self, item):
@@ -34,7 +35,7 @@ class Field:
                 return v
             v = str(v)
             if p_type not in (int, float, bool):
-                v = f"'{v.replace("'","''")}'"
+                v = f"""'{v.replace("'","''")}'"""
             return v
 
         def __init__(self, left, op, right):
