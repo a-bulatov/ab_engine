@@ -139,6 +139,8 @@ class DB(Option):
             if close:
                 await self._conn_limit.release()
             else:
+                if self._conn_limit.locked():
+                    await self.garbage_collect()
                 await self._conn_limit.acquire()
         return self._params
 
