@@ -1,9 +1,9 @@
 [project]
 name = "ab_engine"
-version = "0.1.0"
+version = "0.1.1"
 description = "Library of standard modules"
 authors = [{name = "Andrew Bulatov", email = "BulatovAndrew@gmail.com"}]
-license = { text = "MIT" }
+license = "MIT"
 readme = "readme.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -12,6 +12,8 @@ dependencies = [
     "pyaml>=25.7.0",
     "toml>=0.10.2",
 ]
+[project.urls]
+Repository = "https://github.com/a-bulatov/ab_engine"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"

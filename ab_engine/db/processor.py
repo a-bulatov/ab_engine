@@ -1,4 +1,4 @@
-from .option import Option, DB, TIMEOUT, PAGE, CALLBACK
+from .option import Option, DB, TIMEOUT, PAGE, CALLBACK, ITERATOR
 from .driver import RowFactory
 from ..error import raise_error
 
@@ -10,7 +10,7 @@ def set_connection(connection_string:str):
 
 async def sql(query:str, *args, **kwargs):
     process = []
-    db = callback = tm = row_factory = one_row = page = None
+    db = callback = tm = row_factory = one_row = page = itr = None
     for n, arg in enumerate(args):
         if Option.is_option(arg):
             if not process:
@@ -26,6 +26,8 @@ async def sql(query:str, *args, **kwargs):
             if arg.can_process:
                 process.append(arg)
                 continue
+            if arg == DB:
+                arg = DB()
             if isinstance(arg, DB) and db is None:
                 db = arg
             elif isinstance(arg, CALLBACK) and callback is None:
@@ -40,6 +42,10 @@ async def sql(query:str, *args, **kwargs):
                 tm = arg
             elif isinstance(arg, TIMEOUT):
                 raise_error("TIMEOUT_ALRDY_DEF")
+            elif arg == ITERATOR:
+                itr = ITERATOR()
+            elif isinstance(arg, ITERATOR):
+                itr = arg
         elif process:
             raise_error("PMT_BEF_OPT")
     if process:
@@ -59,6 +65,10 @@ async def sql(query:str, *args, **kwargs):
         query = await page(db.connection, query)
     if callback is not None:
         query = await callback(query)
+    if itr:
+        if page:
+            raise_error("PAGE_ITERATOR")
+        return itr(query, db, row_factory, process)
     try:
         if tm is None:
             ret = await db.connection.sql(query, one_row=one_row, row_factory=row_factory)

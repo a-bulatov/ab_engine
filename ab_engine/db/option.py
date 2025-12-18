@@ -4,7 +4,7 @@ from .driver import RowFactory, Driver, _set_is_option
 from pathlib import Path
 from importlib.machinery import SourceFileLoader
 from json5 import loads
-from asyncio import BoundedSemaphore, wait_for, TimeoutError
+from asyncio import BoundedSemaphore, wait_for, TimeoutError, sleep
 from ..error import raise_error
 from inspect import iscoroutinefunction
 from typing import Callable
@@ -54,7 +54,7 @@ class Option(ABC):
     async def process(ret_data, connection, row_factory):
         """
         Возвращает преобразованный набор данных и формат
-        если вместо формата вернулся Nonme - дальнейшее преобразование невозможно
+        если вместо формата вернулся None - дальнейшее преобразование невозможно
         """
         return ret_data, row_factory
 
@@ -69,7 +69,7 @@ class DB(Option):
     """
     _TRASH_ = set()
 
-    def __init__(self, connection_string: str):
+    def __init__(self, connection_string: str=""):
         connection_string = connection_string.strip()
         if connection_string.startswith("jdbc:"):
             connection_string = connection_string[5:]
@@ -117,27 +117,51 @@ class DB(Option):
                 _DRIVERS_[driver_path] = driver
         else:
             driver_path = ""
+
+        self._hash = hash(driver_path + connection_string)
         if "LIMIT" in self._params:
             m = self._params["LIMIT"]
             del self._params["LIMIT"]
         else:
             m = 0
-        if m > 0:
-            if lmt:=_LIMITS_.get(driver_path + connection_string):
-                if lmt._waiters:
-                    lmt._value = m - len(lmt._waiters)
-                else:
-                    lmt._value = m
-            else:
-                lmt = BoundedSemaphore(m)
-                _LIMITS_[driver_path + connection_string] = lmt
-            self._conn_limit = lmt
+        self._conn_limit = None
+        self.connection_limit = m
         self._connection = driver(connection_string, self._on_open_close)
 
+    @property
+    def connection_limit(self)->int:
+        lmt = _LIMITS_.get(self._hash)
+        return lmt._value if lmt else 0
+
+
+    @connection_limit.setter
+    def connection_limit(self, value:int):
+        """
+        Позволяет задать ограничение на количество таких соединений
+        """
+        if value<=0:
+            if self._hash in _LIMITS_:
+                del _LIMITS_[self._hash]
+            return
+        elif lmt:=_LIMITS_.get(self._hash):
+            if lmt._waiters:
+                lmt._value = value - len(lmt._waiters)
+            else:
+                lmt._value = value
+        else:
+            lmt = BoundedSemaphore(value)
+            _LIMITS_[self._hash] = lmt
+        self._conn_limit = lmt
+
+
     async def _on_open_close(self, close=False)->dict:
-        if hasattr(self, "_conn_limit"):
+        if self._conn_limit:
             if close:
                 await self._conn_limit.release()
+                if self._hash not in _LIMITS_:
+                    self._conn_limit = None
+            elif self._hash not in _LIMITS_:
+                self._conn_limit = None
             else:
                 if self._conn_limit.locked():
                     await self.garbage_collect()
@@ -321,3 +345,47 @@ class CALLBACK(Option):
         if self._attrs is None:
             raise_error("ATTR_NOT_FOUND", name=item)
         return self._attrs[item]
+
+
+class ITERATOR(Option):
+
+    def __init__(self, page_size:int=200, async_delay=0.00000001):
+        self._page_size = page_size
+        self._delay = async_delay
+        self._ofs = 0
+        self._pos = page_size-1
+        self._buf = None
+        self._query = None
+        self._db = None
+        self._row_factory = None
+        self._process = None
+
+    def __call__(self, query, db=None, row_factory=RowFactory.DICT, process=None):
+        if self._query:
+            return None
+        self._query = query
+        self._db = db
+        self._row_factory = row_factory
+        self._process = process if isinstance(process, list) else []
+        return self
+
+    def __aiter__(self):
+        self._ofs = -self._page_size
+        self._pos = self._page_size - 1
+        self._buf = None
+        return self
+
+    async def __anext__(self):
+        await sleep(self._delay)
+        self._pos += 1
+        if self._buf and self._pos >= len(self._buf) and len(self._buf) < self._page_size:
+            raise StopAsyncIteration
+        elif self._pos >= self._page_size:
+            self._ofs += self._page_size
+            self._pos = 0
+            q = await self._db.connection.page(self._query, self._page_size, self._ofs)
+            self._buf = await self._db.connection.sql(q, one_row=False, row_factory=self._row_factory)
+            if not self._buf:
+                raise StopAsyncIteration
+        return self._buf[self._pos]
+

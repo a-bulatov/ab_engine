@@ -8,6 +8,8 @@
   msg: Фабрика строк уже определена в {src}
 - code: DB_ALRDY_DEF
   msg: Соединение с БД уже определено
+- code: PAGE_ITERATOR
+  msg: PAGE и ITERATOR нельзя использовать вместе
 - code: PMT_BEF_OPT
   msg: Параметры должны быть заданы перед опциями
 - code: NA_DB
