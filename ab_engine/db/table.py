@@ -632,7 +632,7 @@ class EnvTable(Table):
     @classmethod
     async def create(cls, table_name, env, page_size=100, async_delay=0.0001):
         table_struct = await env.sql("\d "+table_name)
-        if table_struct is None:
+        if not table_struct:
             raise_error("NA_TABLE", name=table_name)
         t = cls(table_struct, env, page_size, async_delay)
         await t.first()

@@ -1042,6 +1042,58 @@ class Field:
         """возвращает количество уникальных значений поля с учетом текущего фильтра таблицы"""
 ```
 
+Пример использования курсора таблицы:
+```python
+from ab_engine import Config
+from ab_engine.env import DB_ENV
+from asyncio import run
+
+async def test():
+    Config("test.toml")
+    env = DB_ENV()
+    tbl = await env.table("test", if_not_exists=[ # если таблицы не существует
+        # создать таблицу 
+        """
+        create table test(
+            id serial primary key,
+            val varchar
+        )""",
+        # заполнить таблицу тестовыми значениями
+        """
+        insert into test(val)
+        select format('Запись № %s', generate_series)
+        from generate_series(1, 100)
+        """
+    ])
+
+    # обход всех записей курсора
+    async for row in tbl:
+        print(row.id.value, tbl.position) # вывод значения поля id и номер строки
+    print("------------")
+
+    # установить курсор на строку с номером 30
+    await tbl.seek(30)
+    for x in range(5):
+        await tbl.prior() # передвинуть курмор на строку назад
+        print(tbl.row) # вывод всех значений всех полей строки
+
+    await tbl.first() # установить курсор на первую запись
+    for x in range(5):
+        print(tbl.row)
+        await tbl.next() # перейти на следующую строку
+    print("------------")
+    await tbl.seek(3)
+    print(tbl.row)
+    # поменять значение поля val в строке 3
+    tbl.row.val.value = "Новое значение" if tbl.row.val.value=="Запись № 4" else "Запись № 4"
+    print(tbl.row)
+    await env.commit() # сохранить изменения
+
+
+if __name__ == '__main__':
+    run(test())
+```
+
 ## Единообразное выполнение функций python и sql
 
 Единообразное выполнение функций python и sql реализовано как часть механизма поддержки удаленного вызова функций, 

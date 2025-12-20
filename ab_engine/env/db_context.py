@@ -4,7 +4,7 @@ from .config import Config, LogLevel
 from json5 import loads, dumps
 from ..db.table import EnvTable
 from inspect import iscoroutinefunction
-from ..error import raise_error
+from ..error import raise_error, Error
 
 
 class Property:
@@ -183,15 +183,26 @@ class DB_ENV:
             await self._context.connection.rollback()
         self._context = None
 
-    async def table(self, name, page_size=100, async_delay=0.001):
+    async def table(self, name, page_size=100, async_delay=0.000001, if_not_exists:Optional[list]=None):
         """
         :param name: имя таблицы
         :param page_size: количество строк таблицы, одновременно находящихся в памяти
         :param async_delay: задержка итерации цикла при использовании курсора как итератора
+        :param if_not_exists: список команд, которые вызываются, если тавблица не существует
         :return: курсор для работы с таблицей
         """
         if self._context is None:
             await self.__aenter__()
+        try:
+            t = await EnvTable.create(name, self, page_size=page_size, async_delay=async_delay)
+            return t
+        except Error as e:
+            if not e.code=="NA_TABLE" or not if_not_exists:
+                raise e
+        if isinstance(if_not_exists, str):
+            if_not_exists = [if_not_exists]
+        for x in if_not_exists:
+            await self.sql(x)
         t = await EnvTable.create(name, self, page_size=page_size, async_delay=async_delay)
         return t
 

@@ -225,6 +225,8 @@ class Driver(ABC):
                 from information_schema.columns ku {fltr}
                 order by ku.ordinal_position"""
         qry = await self.sql(qry, one_row=False, row_factory=RowFactory.NAMED_TUPLE)
+        if not qry:
+            return {}
         fields = []
         for x in qry:
             t = self._specify_type(x)
