@@ -66,16 +66,22 @@ def error_msg(code, *args, **kwargs)->ErrorData:
         msg = msg.format_map(defaultdict(lambda: "", kwargs))
     return ErrorData(code=code, http_code=h_code, message=msg, class_name=info.get("class"))
 
-def raise_error(code, *args, **kwargs):
 
+def error(code, *args, **kwargs):
     err = error_msg(code, *args, **kwargs)
 
-    if err.class_name and err.class_name!="Error":
+    if err.class_name and err.class_name != "Error":
         cls = find_subclass(BaseException, err.class_name)
         if cls is None:
             raise BadError(code, err.http_code, err.message, err.class_name, *args, **kwargs)
     else:
         cls = Error
-    if cls is None or find_subclass(Error, cls.__name__):
-        raise cls(code, err.http_code, err.message)
-    raise cls(err.message, *args)
+    if cls is None:
+        return Error(code, err.http_code, err.message)
+    elif find_subclass(Error, cls.__name__):
+        return cls(code, err.http_code, err.message)
+    return cls(err.message, *args)
+
+
+def raise_error(code, *args, **kwargs):
+    raise error(code, *args, **kwargs)

@@ -270,12 +270,12 @@ if __name__ == '__main__':
 сохраним этот yaml как errors.yaml и в файле рядом напишем код:
 
 ```python
-from ab_engine import raise_error, load_errors
+from ab_engine import error, load_errors
 
 load_errors("./errors.yaml")
 
 try:
-    raise_error("ERROR", place="программе", name="в коде", what="страшное")
+    raise error("ERROR", place="программе", name="в коде", what="страшное")
 except Exception as e:
     print(type(e))
     print(e)
@@ -283,7 +283,7 @@ except Exception as e:
     print("HTTP CODE:",e.http_code)
 
 try:
-    raise_error("OTHER_ERROR")
+    raise error("OTHER_ERROR")
 except Exception as e:
     print(type(e))
     print(e)
@@ -871,7 +871,7 @@ class Table:
         """
         Создает объект для работы с указанной таблицей. [Не рекомендуется использование Table(...)]
         При работе таблица сортируется по ключу, если ключа нет, то по первому полю
-        :param table_name: Иья таблицы
+        :param table_name: Имя таблицы
         :param db: опция DB для соединения с БД
         :param page_size: размер окна для чтения таблицы
         :param auto_close_conn: если True, то соединение автоматически закрывается после каждого чтения или записи таблицы
@@ -1046,6 +1046,7 @@ class Field:
 ```python
 from ab_engine import Config
 from ab_engine.env import DB_ENV
+from ab_engine.db import OBJECT
 from asyncio import run
 
 async def test():
@@ -1065,6 +1066,26 @@ async def test():
         from generate_series(1, 100)
         """
     ])
+    
+    # выбрать записи с id==2 или id==5
+    x = await tbl([
+         tbl.row.id==2,
+         tbl.row.id==5
+    ])
+    print(x)
+    print("------------")
+    
+    # тоже выбрать записи с id==2 или id==5
+    where = (tbl.row.id==2) | (tbl.row.id==5)
+    print(where)
+    x = await tbl(where)
+    print(x)
+    print("------------")
+    
+    # выбрать записи с val=="Запись № 7" и вернуть результат как namedtuple
+    x = await tbl(tbl.row.val=="Запись № 7", OBJECT)
+    print(x)
+    print("------------")
 
     # обход всех записей курсора
     async for row in tbl:

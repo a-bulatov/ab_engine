@@ -72,10 +72,27 @@ class Field:
                 return
             else:
                 right = self._lquot(left._p_type, right)
+            self._extras = []
             self._qry = f"{left()} {op} {right}"
 
+        def __or__(self, other):
+            self._extras.append(('or', other))
+            return self
+
+        def __and__(self, other):
+            self._extras.append(('and', other))
+            return self
+
         def __call__(self):
-            return self._qry
+            q = self._qry
+            for x in self._extras:
+                q += f" {x[0]} {x[1]} "
+            if self._extras:
+                q = f"({q})"
+            return q
+
+        def __repr__(self):
+            return self()
 
     def __init__(self, defs: dict, table):
         self._table = table

@@ -1,9 +1,9 @@
-from _imports import raise_error, load_errors
+from _imports import error, load_errors
 
 load_errors("./errors.yaml")
 
 try:
-    raise_error("ERROR", place="программе", name="в коде", what="страшное")
+    raise error("ERROR", place="программе", name="в коде", what="страшное")
 except Exception as e:
     print(type(e))
     print(e)
@@ -11,7 +11,7 @@ except Exception as e:
     print("HTTP CODE:",e.http_code)
 
 try:
-    raise_error("OTHER_ERROR")
+    raise error("OTHER_ERROR")
 except Exception as e:
     print(type(e))
     print(e)

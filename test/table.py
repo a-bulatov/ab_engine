@@ -16,6 +16,25 @@ async def test():
         """
     ])
 
+    # выбрать записи с id==2 или id==5
+    x = await tbl([
+        tbl.row.id == 2,
+        tbl.row.id == 5
+    ])
+    print(x)
+    print("------------")
+
+    # тоже выбрать записи с id==2 или id==5
+    where = (tbl.row.id == 2) | (tbl.row.id == 5)
+    print(where)
+    x = await tbl(where)
+    print(x)
+    print("------------")
+
+    # выбрать записи с val=="Запись № 7"
+    x = await tbl(tbl.row.val=="Запись № 7", OBJECT)
+    print(x)
+
     # обход всех записей курсора
     async for row in tbl:
         print(row.id.value, tbl.position) # вывод значения поля id и номер строки
@@ -41,4 +60,5 @@ async def test():
 
 
 if __name__ == '__main__':
+    raise error("DB_ALRDY_DEF")
     run_async(test())
