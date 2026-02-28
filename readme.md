@@ -1323,13 +1323,13 @@ async def with_env(env, **kwargs):
     x.update(kwargs)
     return x
 ```
-также нам понадобится файл test.toml следующего содержания:
+Также нам понадобится файл test.toml следующего содержания:
 ```toml
 [defaults]
 plugin_path = "./"
 ```
 
-и основной код примера:
+И основной код примера:
 ```python
 from ab_engine import register_rpc, call_rpc, Config
 from ab_engine.env import DB_ENV
@@ -1337,7 +1337,7 @@ import asyncio
 
 async def main():
     Config("test.toml")
-    register_rpc("plugin", "_plugin.py:with_env")
+    register_rpc("plugin", "plugin.py:with_env") # не указан путь
     env = DB_ENV(c=3, d=4)
     x = await call_rpc("plugin", env, a=1, b=2)
     print(x)
@@ -1345,5 +1345,9 @@ async def main():
 if __name__ == '__main__':
     asyncio.run(main())
 ```
-в данном примере в функцию плагина будет передан экземпляр окружения, из которого она фвозьмет параметры и объединит 
+В данном примере в функцию плагина будет передан экземпляр окружения, из которого она возьмет параметры и объединит 
 их с параметрами, переданными в функцию.
+В этом примере следует отметить, что путь к коду плагина не указан в параметре функции register_rpc.
+Путь поиска плагинов в этом примере задан в файле test.toml в параметре plugin_path.
+В параметре plugin_path можно указать несколько путей поиска, разделенных ; (точкой с запятой), поиск 
+файла в этом случае будет идти в том порядке, в котором перечислены пути.  
