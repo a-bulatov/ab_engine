@@ -5,6 +5,7 @@ from json5 import loads, dumps
 from ..db.table import EnvTable
 from inspect import iscoroutinefunction
 from ..error import raise_error, Error
+from collections import UserDict
 
 
 class Property:
@@ -22,7 +23,7 @@ class Property:
         self._setter(value)
 
 
-class DB_ENV:
+class DB_ENV(UserDict):
 
     def __init__(self, connection: str="", db_params:Optional[set]=None, **kwargs):
         """
@@ -31,18 +32,19 @@ class DB_ENV:
         :param db_params: список переменных, которые должны передаваться в в окружение соединения с БД
         :param kwargs: значения переменных
         """
+        params = {}
         self._db_params = set()
-        self._params = {}
         if isinstance(connection, DB_ENV):
             env = connection
             self._db_params = env._db_params.copy()
-            self._params = env._params.copy()
+            params = env._params.copy()
             connection = env.connection_string
         elif isinstance(connection, DB):
             connection = DB.connection.connection_string
         if db_params:
             self._db_params.update(db_params)
-        self._params.update(kwargs)
+
+        params.update(kwargs)
 
         if "://" not in connection:
             connection = Config().db_connection(connection)
@@ -52,12 +54,13 @@ class DB_ENV:
             for x in p:
                 if not x in self._db_params:
                     self._db_params.add(x)
-            if self._params:
-                p.update(self._params)
-            self._params = p
+            if params:
+                p.update(params)
+            params = p
         self._connection_str = connection
         self._context = None
         self._on_commit = set()
+        self.data = params
 
     @property
     def connection_string(self):
@@ -79,19 +82,19 @@ class DB_ENV:
     def __getitem__(self, key):
         if not self.has_item(key):
             raise_error("ENV_ATTR_NOT_EXISTS", name=key)
-        ret = self._params.get(key)
+        ret = super().__getitem__(key)
         return ret.value if isinstance(ret, Property) else ret
 
     def __setitem__(self, key, value):
-        x = self._params.get(key)
+        x = self.get(key)
         if isinstance(x, Property):
             x.value = value
         else:
-            self._params[key] = value
+            super.__setitem__(key, value)
 
     def has_item(self, key):
         # возвращает True если в данном DB_ENV хранится переменная с именем key
-        return key in self._params
+        return key in self
 
     async def __aenter__(self):
         if self._context is not None:
@@ -211,4 +214,4 @@ class DB_ENV:
         """
         сборка мусора и закрытие подвисших соединений
         """
-        DB.garbage_collect()
+        await DB.garbage_collect()

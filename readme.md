@@ -10,7 +10,8 @@
 * [доступ к БД и безопасное выполнение параметризованных запросов](#доступ-к-бд)
 * [выполнение операций БД в рамках контекста](#окружение-и-контекст-для-работы-с-бд-db_env)
 * [работа с курсорами таблиц БД](#работа-с-курсорами-таблиц-бд)
-* [единообразное выполнение функций python и sql, а также поддержка плагинов](#eдинообразное-выполнение-функций-python-и-sql)
+* [единообразное выполнение функций python и sql](#единообразное-выполнение-функций-python-и-sql)
+* [поддержка плагинов](#поддержка-плагинов)
 
 ## Управление настройками
 
@@ -1181,6 +1182,8 @@ async def main():
 Таким образом, функция **register_rpc** регистрирует запрос, плагин или функцию python как метод RPC.
 Может быть вызвана как декоратор или обычная функция с параметрами:
 
+def register(name:Optional[str|Callable]=None,defs=None, help=None) -> Callable:
+
 **name** - имя для RPC вызова функции
 
 **defs** в зависимости от способа вызова и типа регистрируемой функции:
@@ -1278,3 +1281,69 @@ async def main():
 if __name__ == '__main__':
     asyncio.run(main())
 ```
+
+## Поддержка плагинов
+
+Плагины, как и sql-запросы и функции python регистрируются с помощью функции register_rpc.
+Создадим plugin.py с  примером плагина:
+```python
+def test(**kwargs):
+    if kwargs:
+        return {"kwargs": str(kwargs)}
+    return {"kwargs":"kwargs is empty"}
+
+async def async_test():
+    print("is async!!")
+```
+и код с примером вызова плагина:
+```python
+from ab_engine import register_rpc, call_rpc
+import asyncio
+
+register_rpc("test", "./plugin.py") # имя регистрируемой функции совпадает с именем в плагине
+register_rpc("async", "./plugin.py:async_test") # регистрация функции с другим именем
+
+async def main():
+    x = await call_rpc("plugin", a=1, b=2)
+    print(x)
+    await call_rpc('async')
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+Из этого примера можно увидеть как регистрируются функци плагинов.
+Также, из примера следует, что функция call_rpc умеет вызывать как асинхронные, так и обычные функции.
+
+Функции плагинов могут получать экземпляр текущего окружения (DB_ENV).
+Для того чтобы функция получала экземпляр окружения, в ней должен быть явно объявлен параметр env.
+Добавим в файл plugin.py следующую функцию:
+```python
+async def with_env(env, **kwargs):
+    x = env.data.copy()
+    x.update(kwargs)
+    return x
+```
+также нам понадобится файл test.toml следующего содержания:
+```toml
+[defaults]
+plugin_path = "./"
+```
+
+и основной код примера:
+```python
+from ab_engine import register_rpc, call_rpc, Config
+from ab_engine.env import DB_ENV
+import asyncio
+
+async def main():
+    Config("test.toml")
+    register_rpc("plugin", "_plugin.py:with_env")
+    env = DB_ENV(c=3, d=4)
+    x = await call_rpc("plugin", env, a=1, b=2)
+    print(x)
+
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+в данном примере в функцию плагина будет передан экземпляр окружения, из которого она фвозьмет параметры и объединит 
+их с параметрами, переданными в функцию.

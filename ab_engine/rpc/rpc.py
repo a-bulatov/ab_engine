@@ -1,7 +1,7 @@
 from typing import Optional, Callable
 from os import sep as file_sep
 from .fnc import *
-from ..error import raise_error
+from ..error import error
 from ..env import Config, DB_ENV
 from sys import argv as sys_argv
 from pathlib import Path
@@ -31,32 +31,34 @@ def _resolve_path(path:str):
 
 def _load_by_default_path(name, defs, help):
     module, function = _split_module_fnc(defs)
+    paths = None
     if module.startswith(f".{file_sep}") or module.startswith(f"..{file_sep}"):
-        module = _resolve_path(module)
+        paths = _resolve_path(module)
+        module = paths.name
+        paths = [str(paths.parent)]
     else:
         cfg = Config()
         if cfg.hasattr("defaults"):
             paths = cfg.defaults.get("plugin_path")
-        else:
-            paths = None
-        if not paths:
-            raise_error("REG_BAD_PLUG_DIR_DFLT", name=name, defs=defs)
+    if not paths:
+        raise error("REG_BAD_PLUG_DIR_DFLT", name=name, defs=defs)
+    if isinstance(paths, str):
         paths = paths.split(";") ################
-        ends, module = f"{file_sep}{module}".rsplit(file_sep,1)
-        if not module:
-            module = ends
-            ends = None
-        if not module.endswith(".py"):
-            module = f"{module}.py"
-        for path in paths:
-            path = _resolve_path(path)
-            if ends and not path.endswith(ends):
-                continue
-            path = Path(path) / module
-            if path.is_file():
-                PluginFnc(name, path, help, function)
-                return
-    raise_error("REG_PLUG_NOT_FOUND", module=module, function=function if function else name)
+    ends, module = f"{file_sep}{module}".rsplit(file_sep,1)
+    if not module:
+        module = ends
+        ends = None
+    if not module.endswith(".py"):
+        module = f"{module}.py"
+    for path in paths:
+        path = _resolve_path(path)
+        if ends and not path.endswith(ends):
+            continue
+        path = Path(path) / module
+        if path.is_file():
+            PluginFnc(name, path, help, function)
+            return
+    raise error("REG_PLUG_NOT_FOUND", module=module, function=function if function else name)
 
 
 def register(name:Optional[str|Callable]=None,defs=None, help=None) -> Callable:
@@ -107,7 +109,7 @@ def register(name:Optional[str|Callable]=None,defs=None, help=None) -> Callable:
         module, function = _split_module_fnc(defs)
         PluginFnc(name, module, help, function)
     else:
-        raise_error("BAD_FN_PARAMS", name=name, defs=defs)
+        raise error("BAD_FN_PARAMS", name=name, defs=defs)
     return dummy
 
 
@@ -119,19 +121,19 @@ async def call_rpc(name_of_rpc_method_for_call, current_rpc_environment_for_call
     :param kwargs: параметры
     :return: результат выполнения метода
     """
-    if current_rpc_environment_for_call is None:
+    if isinstance(name_of_rpc_method_for_call, str):
+        f = Fnc.search(name_of_rpc_method_for_call)
+        if f is None:
+            raise error("FN_NOT_FOUND", method=name_of_rpc_method_for_call)
+    elif not isinstance(name_of_rpc_method_for_call, Fnc):
+        raise error("BAD_RPC_METHOD")
+    else:
+        f = name_of_rpc_method_for_call
+    if current_rpc_environment_for_call is None and Config._settings is not None:
         current_rpc_environment_for_call = DB_ENV()
         local = True
     else:
         local = False
-    if isinstance(name_of_rpc_method_for_call, str):
-        f = Fnc.search(name_of_rpc_method_for_call)
-        if f is None:
-            raise_error("FN_NOT_FOUND", method=name_of_rpc_method_for_call)
-    elif not isinstance(name_of_rpc_method_for_call, Fnc):
-        raise_error("BAD_RPC_METHOD")
-    else:
-        f = name_of_rpc_method_for_call
     try:
         ret = await f(current_rpc_environment_for_call, **kwargs)
         if local and current_rpc_environment_for_call.in_transaction:
