@@ -44,10 +44,18 @@ class Option(ABC):
 
     @classproperty
     def can_process(cls):
+        """
+        Если возвратить true, то для обработки результата будет вызываться метод process для постобработки
+        :return:
+        """
         return False
 
     @classproperty
     def one_row(cls):
+        """
+        Если возвращается true, то опция работает только с fetchone если false только с fetchall, Njne - и так и так
+        :return:
+        """
         return None
 
     @staticmethod
@@ -61,6 +69,9 @@ class Option(ABC):
 _set_is_option(Option.is_option)
 
 class ALL(Option):
+    ...
+
+class RAW(Option):
     ...
 
 class DB(Option):
@@ -130,6 +141,10 @@ class DB(Option):
 
     @property
     def connection_limit(self)->int:
+        """
+        Ограничения количества одновременных подключений
+        :return:
+        """
         lmt = _LIMITS_.get(self._hash)
         return lmt._value if lmt else 0
 
@@ -240,7 +255,7 @@ class ONE(ROW):
 
     @staticmethod
     async def process(ret_data, connection, row_factory):
-        if isinstance(ret_data, (int, None.__class__)):
+        if ret_data is None or isinstance(ret_data, int):
             return ret_data, None
         match row_factory:
             case RowFactory.TUPLE:

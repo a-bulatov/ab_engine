@@ -1,4 +1,4 @@
-from .option import Option, DB, TIMEOUT, PAGE, CALLBACK, ITERATOR
+from .option import Option, DB, TIMEOUT, PAGE, CALLBACK, ITERATOR, RAW
 from .driver import RowFactory
 from ..error import raise_error
 
@@ -11,6 +11,7 @@ def set_connection(connection_string:str):
 async def sql(query:str, *args, **kwargs):
     process = []
     db = callback = tm = row_factory = one_row = page = itr = None
+    parse = True
     for n, arg in enumerate(args):
         if Option.is_option(arg):
             if not process:
@@ -46,6 +47,8 @@ async def sql(query:str, *args, **kwargs):
                 itr = ITERATOR()
             elif isinstance(arg, ITERATOR):
                 itr = arg
+            elif arg == RAW:
+                parse = False
         elif process:
             raise_error("PMT_BEF_OPT")
     if process:
@@ -60,7 +63,8 @@ async def sql(query:str, *args, **kwargs):
     row_factory = row_factory.row_factory if row_factory and row_factory.row_factory != RowFactory.ANY else RowFactory.DICT
     if callback:
         kwargs["__PARAM_CALLBACK_GETTER"] = callback
-    query = await db.connection.parse_query(query, *args, **kwargs)
+    if parse:
+        query = await db.connection.parse_query(query, *args, **kwargs)
     if page:
         query = await page(db.connection, query)
     if callback is not None:
