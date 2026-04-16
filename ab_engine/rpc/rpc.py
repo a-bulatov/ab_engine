@@ -61,7 +61,7 @@ def _load_by_default_path(name, defs, help):
     raise error("REG_PLUG_NOT_FOUND", module=module, function=function if function else name)
 
 
-def register(name:Optional[str|Callable]=None,defs=None, help=None) -> Callable:
+def register(name:Optional[str|Callable]=None,defs=None, help=None, **kwargs) -> Callable:
     """
     Регистрирует запрос, плагин или функцию python как метод RPC.
     Данная функция работает и как обычная функция с параметрами и как декоратор
@@ -92,22 +92,22 @@ def register(name:Optional[str|Callable]=None,defs=None, help=None) -> Callable:
         ...
 
     if callable(name):
-        PythonFnc(name.__name__, name, help or defs)
+        PythonFnc(name.__name__, name, help or defs, **kwargs)
         return name
     elif callable(defs):
-        PythonFnc(name, defs, help)
+        PythonFnc(name, defs, help, **kwargs)
         return defs
     elif defs is None:
         return wrapper
     elif isinstance(defs, Path):
-        PluginFnc(name, defs, help)
+        PluginFnc(name, defs, help, **kwargs)
     elif name and (isinstance(defs, tuple) or (isinstance(defs, str) and any(x.isspace() for x in defs))):
         SqlFnc(name, defs, help)
     elif name and isinstance(defs, str) and not (defs.startswith("/") or defs.startswith("~")):
         _load_by_default_path(name, defs, help)
     elif name and isinstance(defs, str):
         module, function = _split_module_fnc(defs)
-        PluginFnc(name, module, help, function)
+        PluginFnc(name, module, help, function, **kwargs)
     else:
         raise error("BAD_FN_PARAMS", name=name, defs=defs)
     return dummy

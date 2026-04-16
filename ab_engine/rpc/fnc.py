@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from inspect import iscoroutinefunction
+from inspect import iscoroutinefunction, isclass
 from inspect import getdoc
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -34,7 +34,7 @@ class Fnc(ABC):
 
 class PythonFnc(Fnc):
 
-    def __init__(self, name, f, help=None):
+    def __init__(self, name, f, help=None, **kwargs):
         """
         врапер для функции python
         :param name: имя функции для вызова RPC
@@ -43,17 +43,20 @@ class PythonFnc(Fnc):
         """
         if not help:
             help = getdoc(f)
+        if isclass(f): # это класс с методом call() и т.д.
+            x = f(**kwargs)
+            f = x.__call__
         if iscoroutinefunction(f):
             async def wrapper_env(env, **kwargs):
                 nonlocal f
-                return await f(env, **kwargs)
+                return await f(env=env, **kwargs)
             async def wrapper(env, **kwargs):
                 nonlocal f
                 return await f(**kwargs)
         else:
             async def wrapper_env(env, **kwargs):
                 nonlocal f
-                return f(env, **kwargs)
+                return f(env=env, **kwargs)
             async def wrapper(env, **kwargs):
                 nonlocal f
                 return f(**kwargs)
@@ -71,7 +74,7 @@ class PluginFnc(PythonFnc):
 
     modules = {}
 
-    def __init__(self, name, module_path, help=None, fnc_name=None, module_name=None):
+    def __init__(self, name, module_path, help=None, fnc_name=None, module_name=None, **kwargs):
         """
         врапер для функции python, вызываемой из плагина
         :param name: имя функции для вызова RPC
@@ -94,7 +97,7 @@ class PluginFnc(PythonFnc):
         if not hasattr(m, fnc_name):
             raise RuntimeError(f"Funcion '{fnc_name}' is not found in module '{module_name}'")
         f = getattr(m, fnc_name)
-        super().__init__(name, f, help)
+        super().__init__(name, f, help, **kwargs)
 
 
 class SqlFnc(Fnc):

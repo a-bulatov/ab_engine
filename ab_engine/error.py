@@ -59,11 +59,14 @@ def error_msg(code, *args, **kwargs)->ErrorData:
         h_code = 501
     info = _ERRORS.get(code, {
         "http": 501,
-        "msg": f"Unknown error\n{str(kwargs)}".replace("{", "/")
+        "msg": f"Unknown error\n{str(kwargs)}".replace("{", "/").replace("}", "")
     })
     h_code = info.get("http", h_code)
     if msg:= info.get("msg"):
-        msg = msg.format_map(defaultdict(lambda: "", kwargs))
+        try:
+            msg = msg.format_map(defaultdict(lambda: "", kwargs))
+        except:
+            ...
     return ErrorData(code=code, http_code=h_code, message=msg, class_name=info.get("class"))
 
 

@@ -24,7 +24,7 @@ class JSON_RPC:
             "message": err.message,
         }
         if data:
-            code["data"] = data if isinstance(data, (dict, list)) else str(data)
+            code["message"] = data if isinstance(data, (dict, list)) else str(data)
         code = {"error": code}
         if header:
             if "id" in header:
