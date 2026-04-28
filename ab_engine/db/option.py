@@ -80,7 +80,7 @@ class DB(Option):
     """
     _TRASH_ = set()
 
-    def __init__(self, connection_string: str=""):
+    def __init__(self, connection_string: str="", notify=None):
         connection_string = connection_string.strip()
         if connection_string.startswith("jdbc:"):
             connection_string = connection_string[5:]
@@ -137,7 +137,7 @@ class DB(Option):
             m = 0
         self._conn_limit = None
         self.connection_limit = m
-        self._connection = driver(connection_string, self._on_open_close)
+        self._connection = driver(connection_string, self._on_open_close, notify)
 
     @property
     def connection_limit(self)->int:

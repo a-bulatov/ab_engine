@@ -16,9 +16,14 @@ async def main():
     cnt = await sql("select count(*) from t1", ONE)
     print(cnt)
 
-    env = DB_ENV(a=2)
+    notifyes = []
+
+    env = DB_ENV(a=2, notify=notifyes)
     x = await env.sql("select $a * $b", ONE, b=5)
     print(x)  # 10
+
+    await env.sql("do $$\nbegin\n raise notice 'hello world!'; end;$$", RAW)
+    print(notifyes)
 
     t = await env.table("t1")
     x = await t.count()

@@ -3,6 +3,8 @@ sys.path.append(os.path.dirname(__file__))
 from driver import Driver as BaseDriver, RowFactory
 from psycopg import AsyncConnection
 import psycopg.rows as rows
+from psycopg.errors import Diagnostic
+from inspect import iscoroutinefunction
 
 
 _FACTORY_ = {
@@ -26,11 +28,12 @@ class Driver(BaseDriver):
 
     LIKE = "ILIKE"
 
-    def __init__(self, connection_string, on_open_close=None):
+    def __init__(self, connection_string, on_open_close=None, notify=None):
         """
         localhost:5432/postgres?user=postgres&password=postgres
         """
-        super().__init__(connection_string, on_open_close)
+        super().__init__(connection_string, on_open_close, notify=None)
+        self._notify = notify
         host, options = self.connection_string.split("/", 1)
         if ":" in host:
             host, port = host.split(":", 1)
@@ -53,6 +56,15 @@ class Driver(BaseDriver):
     def in_transaction(self):
         return self._conn is not None
 
+    async def _notify_callback(self, notify):
+        notify = notify if isinstance(notify, str) else f"[{notify.pid}: {notify.channel}] {notify.payload}"
+        if isinstance(self._notify, list):
+            self._notify.append(notify)
+        elif iscoroutinefunction(self._notify):
+            await self._notify(notify)
+        elif callable(self._notify):
+            self._notify(notify)
+
     async def begin(self):
         params = await self._before_open()
         self._conn = await AsyncConnection.connect(self.connection_string)
@@ -61,6 +73,8 @@ class Driver(BaseDriver):
                 await self._conn.execute(f"set session timezone '{params[x]}'")
             else:
                 await self._conn.execute(f"SET {x} = '{params[x]}'")
+        if self._notify:
+            self._conn.add_notify_handler(self._notify_callback)
 
     async def sql(self, query, one_row=False, row_factory=RowFactory.DICT):
         if self._conn is None:
@@ -69,7 +83,23 @@ class Driver(BaseDriver):
 
             acur.row_factory = _FACTORY_[row_factory.value]
 
-            await acur.execute(query)
+            if self._notify is not None:
+                notices = []
+
+                def add_notice(notify):
+                    nonlocal notices
+                    notices.append(f"[{notify.severity}] {notify.message_primary}")
+
+                try:
+                    self._conn.add_notice_handler(add_notice)
+                    await acur.execute(query)
+                finally:
+                    self._conn.remove_notice_handler(add_notice)
+                    for x in notices:
+                        await self._notify_callback(x)
+            else:
+                await acur.execute(query)
+
             descr = acur.description
             if not descr:
                 return acur.rowcount

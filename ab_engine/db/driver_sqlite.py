@@ -46,11 +46,11 @@ _FACTORY_ = {
 
 class Driver(BaseDriver):
 
-    def __init__(self, connection_string, on_open_close=None):
+    def __init__(self, connection_string, on_open_close=None, notify=None):
         """
         test_db.sqlite
         """
-        super().__init__(connection_string, on_open_close)
+        super().__init__(connection_string, on_open_close, notify)
 
     async def begin(self):
         await self._before_open()

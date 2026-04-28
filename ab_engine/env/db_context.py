@@ -25,15 +25,17 @@ class Property:
 
 class DB_ENV(UserDict):
 
-    def __init__(self, connection: str="", db_params:Optional[set]=None, **kwargs):
+    def __init__(self, connection: str="", db_params:Optional[set]=None, notify=None, **kwargs):
         """
         Окружение для работы с БД
         :param connection: строка соеддинения или экземпляр DB_ENV, на основе которого нужно создать данный
         :param db_params: список переменных, которые должны передаваться в в окружение соединения с БД
+        :param notify: список или функция, в которую будут переданы извещения о событиях
         :param kwargs: значения переменных
         """
         params = {}
         self._db_params = set()
+        self._notify = notify
         if isinstance(connection, DB_ENV):
             env = connection
             self._db_params = env._db_params.copy()
@@ -103,7 +105,7 @@ class DB_ENV(UserDict):
             s = self._connection_str + f"{{{dumps({x:self[x] for x in self._db_params if self.has_item(x)})}}}"
         else:
             s = self._connection_str
-        self._context = DB(s)
+        self._context = DB(s, notify=self._notify)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

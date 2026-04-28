@@ -37,14 +37,14 @@ _FACTORY_ = {
 
 class Driver(BaseDriver):
 
-    def __init__(self, connection_string, on_open_close=None):
+    def __init__(self, connection_string, on_open_close=None, notify=None):
         """
         localhost:3306/mysql?user=root&password=root
         """
         if "{" in connection_string:
             connection_string, options = connection_string.split("{", 1)
 
-        super().__init__(connection_string, on_open_close)
+        super().__init__(connection_string, on_open_close, notify)
 
         if "/" in self.connection_string:
             x, options = self.connection_string.split("/", 1)

@@ -31,9 +31,9 @@ def reencode(s):
 
 class Driver(ABC):
 
-    LIKE = "LIKE"
+    LIKE = "LIKE" # что использовать как like, например для postgresql это ILIKE
 
-    def __init__(self, connection_string, on_open_close=None):
+    def __init__(self, connection_string, on_open_close=None, notify=None):
         self._conn = None
         if isinstance(connection_string, Driver):
             self._conn_str = connection_string.connection_string
