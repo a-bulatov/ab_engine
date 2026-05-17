@@ -1,6 +1,6 @@
 [project]
 name = "ab_engine"
-version = "0.1.6"
+version = "0.1.7"
 description = "Library of standard modules"
 authors = [{name = "Andrew Bulatov", email = "BulatovAndrew@gmail.com"}]
 license = "MIT"
