@@ -3,6 +3,8 @@ from json import dumps
 from datetime import datetime
 from abc import ABC, abstractmethod
 from collections import namedtuple
+from typing import Optional
+from urllib.parse import unquote
 
 _is_option = None
 
@@ -33,14 +35,50 @@ class Driver(ABC):
 
     LIKE = "LIKE" # что использовать как like, например для postgresql это ILIKE
 
-    def __init__(self, connection_string, on_open_close=None, notify=None):
+    def __init__(self, connection_string, on_open_close=None, notify=None, out_params:Optional[dict]=None):
         self._conn = None
         if isinstance(connection_string, Driver):
             self._conn_str = connection_string.connection_string
             self._on_open_close = on_open_close or connection_string._on_open_close
             return
         self._on_open_close = on_open_close
+        connection_string = connection_string.strip()
+        connection_string, options = connection_string.split("{",1) if "{" in connection_string and connection_string.endswith("}") else connection_string, "}"
+        options = options[:-1]
         self._conn_str = connection_string
+        if out_params is None:
+            return
+        out_params["options"]=options
+        connection_string, options = f"{connection_string}?".split("?",1)
+        options = options[:-1]
+        if options!="":
+            options=options.split("&")
+            for n, x in enumerate(options):
+                x = x.split("=",1)
+                if len(x)==1:
+                    x.append("")
+                options[n] = (unquote(x[0]),unquote(x[1]),)
+        out_params["params"] = {x[0]:x[1] for x in options}
+        if "@" in connection_string:
+            options, connection_string = connection_string.split("@", 1)
+            if ":" in options:
+                options = options.split(":", 1)
+                out_params["user"] = unquote(options[0])
+                out_params["password"] = unquote(options[1])
+            else:
+                out_params["user"] = unquote(options)
+        if "/"in connection_string:
+            connection_string, options = connection_string.split("/", 1)
+            out_params["database"] = unquote(options)
+            if ":" in connection_string:
+                connection_string, options = connection_string.rsplit(":", 1)
+                try:
+                    out_params["port"] = int(options)
+                except Exception as e:
+                    raise ValueError("The port number must be an integer")
+            out_params["host"] = unquote(connection_string)
+        else:
+            out_params["database"] = unquote(connection_string)
 
     @property
     def connection_string(self):

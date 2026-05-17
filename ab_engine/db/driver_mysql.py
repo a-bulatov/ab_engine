@@ -44,7 +44,7 @@ class Driver(BaseDriver):
         if "{" in connection_string:
             connection_string, options = connection_string.split("{", 1)
 
-        super().__init__(connection_string, on_open_close, notify)
+        super().__init__(connection_string, on_open_close)
 
         if "/" in self.connection_string:
             x, options = self.connection_string.split("/", 1)

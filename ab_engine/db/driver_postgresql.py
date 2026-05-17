@@ -32,25 +32,22 @@ class Driver(BaseDriver):
         """
         localhost:5432/postgres?user=postgres&password=postgres
         """
-        super().__init__(connection_string, on_open_close, notify=None)
+        drv_params = {}
+        super().__init__(connection_string, on_open_close, out_params=drv_params)
         self._notify = notify
-        host, options = self.connection_string.split("/", 1)
-        if ":" in host:
-            host, port = host.split(":", 1)
-            port = int(port.strip())
-        else:
-            port = None
-        options = options.split("?", 1)
-        dbname = options[0]
-        if len(options) == 2:
-            options = options[1].replace("&", " ")
-        else:
-            options = ""
-        self._conn_str = f"host={host} dbname={dbname}"
-        if port is not None:
-            self._conn_str += f" port={port}"
-        if options != "":
-            self._conn_str += " " + options
+        if "user" in drv_params:
+            drv_params["params"]["user"] = drv_params["user"]
+        if "password" in drv_params:
+            drv_params["params"]["password"] = drv_params["password"]
+        con = ""
+        if "host" in drv_params:
+            con += f"host={drv_params['host']} "
+        con += f"dbname={drv_params['database']} "
+        if "port" in drv_params:
+            con += f"port={drv_params['port']} "
+        for x in drv_params["params"]:
+            con += f"{x}={drv_params['params'][x]} "
+        self._conn_str = con.strip()
 
     @property
     def in_transaction(self):

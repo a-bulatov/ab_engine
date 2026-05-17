@@ -95,7 +95,10 @@ class DB(Option):
         else:
             self._params = {}
         if "://" not in connection_string:
-            _check_cfg()
+            try:
+                _check_cfg()
+            except Exception as e:
+                raise_error("NA_DB", connection=str(e))
             connection_string = _CFG_.db_connection(connection_string)
         driver_name, connection_string = connection_string.split("://", 1)
 
@@ -111,7 +114,7 @@ class DB(Option):
             conn_params = "?" + "&".join(conn_params)
         connection_string += conn_params
         if driver is None:
-            if driver_path is None:
+            if driver_path is None and _CFG_ and _CFG_.initialized:
                 driver_path = _check_cfg("db_driver_path")
             if driver_path is None:
                 driver_path = Path(__file__).parent / f"driver_{driver_name}.py"
