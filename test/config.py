@@ -1,4 +1,5 @@
 from _imports import *
+import sys
 
 async def test():
     Config("test.toml", env_map={"auth":{"USER":"user"}})
@@ -11,4 +12,5 @@ async def test():
     print("----------------------------------")
 
 if __name__ == '__main__':
+    print(sys.executable)
     run_async(test())

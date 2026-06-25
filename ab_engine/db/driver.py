@@ -141,10 +141,10 @@ class Driver(ABC):
                 return reencode(var)
             else:
                 var = ','.join(['NULL' if x is None else str(x) for x in var])
-                return reencode(var)
+                return reencode(f"{{{var}}}")
         elif isinstance(var, set):
             var = ','.join('NULL' if x is None else str(x) for x in var)
-            return reencode(var)
+            return reencode(f"{{{var}}}")
         elif isinstance(var, dict):
             var = dumps(var, ensure_ascii=False).replace("'", "''")
             return reencode(var)
@@ -181,7 +181,8 @@ class Driver(ABC):
                     n = callback[n]
                 else:
                     raise AttributeError(f"Attribute with name {n} is not exists")
-            qs += f"{self.var_to_sql(n, x)}{x[p:]}"
+            x = x[p:]
+            qs += f"{self.var_to_sql(n, x)}{x}"
             
         if qs:
             query = qs
