@@ -359,7 +359,7 @@ logging:
 ## Доступ к БД
 
 Библиотека поддерживает хранение настроек соединений и выполнение команд SQL на этих соединениях с БД.
-Из коробки реализованы драйвер Postgresql, Sqlite, Mysql (но надо установить зависимость mysql-connector-python)
+Из коробки реализованы драйвер Postgresql, Sqlite и Valkey (Redis). Также реализован драйвер Mysql но для его работы дополнительно надо установить зависимость mysql-connector-python.
 
 Можно описывать драйвера к другим БД. Для того чтобы использовать собственный драйвер, можно добавить класс драйвера
 в словарь DRIVER_CLASSES, который находится в модуле ab_engine/db/option, либо положить драйвер в каталог драйверов.
@@ -707,11 +707,13 @@ DB_ENV реализует следующий контракт:
 ```python
 class DB_ENV:
 
-    def __init__(self, connection: str="", db_params:Optional[set]=None, **kwargs):
+    def __init__(self, connection: str="", db_params:Optional[set]=None, notify=None, **kwargs):
         """
         Окружение для работы с БД
         :param connection: строка соединения или экземпляр DB_ENV, на основе которого нужно создать данный
         :param db_params: список переменных, которые должны передаваться в окружение соединения с БД
+        :param notify: список или функция, в которую будут переданы извещения о событиях. 
+                       функция может быть синхронной или асинхронной и должна принимать на вход один параметр.
         :param kwargs: значения переменных
         """
         
@@ -876,6 +878,62 @@ async def test():
     x = await env.sql("select $a * $b", ONE)
     print(x) # также выведет 10
 ```
+
+#### Особенности работы с Valkey
+
+В случае подключения драйвера Valkey, работа с библиотекой отличается от работы с sql базами данных:
+1) В качестве входного языка для функций sql используется язык redis-cli с которым можно ознакомиться, например, в [The Little Book](https://github.com/akandratovich/the-little-redis-book/blob/master/ru/redis.md)
+2) Поскольку это не язык SQL, то и описанные выше расширения синтаксиса неприменимы к Valkey
+3) Опции позволяющие менять обработку sql, например, ONE не имеют смысла для Valkey
+
+Проиллюстрируем работу с Valkey на примере. 
+Для этого создадим файл test.toml следующего содержания.
+```toml
+[database]
+valkey = "valkey://localhost:6379/0"
+```
+вместо localhost:6379 в файле должны быть заданы адрес хоста и порт Valkey.
+
+Далее напишем следующий код на python:
+```python
+import asyncio
+from ab_engine.db import ONE
+from ab_engine import Config
+from ab_engine.env import DB_ENV
+
+async def main():
+    notify = [] # массив для получения уведомлений
+    env = DB_ENV("valkey", notify=notify)
+    # запишем 123 по ключу x и проверим значение ключа
+    await env.sql("set x 123")
+    x = await env.sql("get x")
+    print(x)
+    # теперь запишем 321, но с использованием параметров
+    await env.sql("set x $1", 321)
+    x = await env.sql("get x")
+    print(x)
+    # запустим цикл для получения уведомлений от Valkey
+    # в данном случае будем получать уведомления в ранее объявленный список notify, но можно было бы передать в
+    # параметр notify конструктора DB_ENV ссылку на функцию с одним обязательным аргументом, тогда уведомления
+    # будут передаваться в эту функцию
+
+    # подписываемся на уведомления публикаций темы test
+    await env.sql("subscribe test")
+
+    # теперь, пока открыто наше соедингение мы будем получать уведомления, если кто-то выполнит в Valkey команду:
+    # publish test "какой-то текст"
+    while True:
+        if notify:
+            print("Уведомления:")
+            while len(notify) > 0:
+                print("  ", notify.pop(0))
+        await asyncio.sleep(0.2)
+
+if __name__ == '__main__':
+    Config("test.toml")
+    asyncio.run(main())
+```
+
 
 ## Работа с курсорами таблиц БД
 

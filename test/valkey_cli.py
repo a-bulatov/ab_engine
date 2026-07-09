@@ -1,3 +1,5 @@
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import cmd, select, socket
 from ab_engine import Config
 
@@ -15,6 +17,7 @@ def decode_array(buf):
             if item_l > 0:
                 buf = buf[item_l+2:]
                 valid = len(item) == item_l
+                item = item.encode('utf-8').decode('unicode-escape')
             else:
                 item = None
                 valid = True
@@ -46,6 +49,7 @@ def decode_buf(buf):
             else:
                 buf =buf[:l]
                 valid = len(buf)==l
+                buf = buf.encode('utf-8').decode('unicode-escape')
         elif buf[0] == ":":
             buf = buf.split("\r\n",1)[0][1:]
             buf = int(buf)
@@ -69,14 +73,13 @@ def redis_cmd(cmd):
         elif quot or quot2:
             part += x
         elif x == " " and part != "":
-            cmd_parts.append(part)
+            cmd_parts.append(part.encode("unicode_escape").decode("ascii"))
             part, after_quot = "", False
         else:
             part += x
-    cmd_parts.append(part)
+    cmd_parts.append(part.encode("unicode_escape").decode("ascii"))
     buf = b''
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(socket.getaddrinfo(redis["host"], redis["port"])[0][-1])
+
     try:
         msg = ["*%s\r\n" % len(cmd_parts)]
         for arg in cmd_parts:
@@ -86,7 +89,11 @@ def redis_cmd(cmd):
                 s = str(arg)
                 msg.append('$%s\r\n%s\r\n' % (len(s), s))
         msg = "".join(msg)
-        sock.send(msg.encode('utf-8'))
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect(socket.getaddrinfo(redis["host"], redis["port"])[0][-1])
+        msg = msg.encode()
+        sock.send(msg)
         while True:
             r, w, err = select.select((sock,), (), (), redis["timeout"])
             if r:
@@ -100,7 +107,7 @@ def redis_cmd(cmd):
                 break
     finally:
         sock.close()
-    buf, ok = decode_buf(buf.decode('utf-8'))
+    buf, ok = decode_buf(buf.decode('utf-8', errors='ignore'))
     return buf
 
 class Cli(cmd.Cmd):

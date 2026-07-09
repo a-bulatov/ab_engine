@@ -3,8 +3,6 @@ sys.path.append(os.path.dirname(__file__))
 from driver import Driver as BaseDriver, RowFactory
 from psycopg import AsyncConnection
 import psycopg.rows as rows
-from psycopg.errors import Diagnostic
-from inspect import iscoroutinefunction
 
 
 _FACTORY_ = {
@@ -33,8 +31,7 @@ class Driver(BaseDriver):
         localhost:5432/postgres?user=postgres&password=postgres
         """
         drv_params = {}
-        super().__init__(connection_string, on_open_close, out_params=drv_params)
-        self._notify = notify
+        super().__init__(connection_string, on_open_close, out_params=drv_params, notify=notify)
         if "user" in drv_params:
             drv_params["params"]["user"] = drv_params["user"]
         if "password" in drv_params:
@@ -53,15 +50,6 @@ class Driver(BaseDriver):
     def in_transaction(self):
         return self._conn is not None
 
-    async def _notify_callback(self, notify):
-        notify = notify if isinstance(notify, str) else f"[{notify.pid}: {notify.channel}] {notify.payload}"
-        if isinstance(self._notify, list):
-            self._notify.append(notify)
-        elif iscoroutinefunction(self._notify):
-            await self._notify(notify)
-        elif callable(self._notify):
-            self._notify(notify)
-
     async def begin(self):
         params = await self._before_open()
         self._conn = await AsyncConnection.connect(self.connection_string)
@@ -72,6 +60,10 @@ class Driver(BaseDriver):
                 await self._conn.execute(f"SET {x} = '{params[x]}'")
         if self._notify:
             self._conn.add_notify_handler(self._notify_callback)
+
+    async def _notify_callback(self, notify):
+        notify = notify if isinstance(notify, str) else f"[{notify.pid}: {notify.channel}] {notify.payload}"
+        await super()._notify_callback(notify)
 
     async def sql(self, query, one_row=False, row_factory=RowFactory.DICT):
         if self._conn is None:

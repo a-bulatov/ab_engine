@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import Optional
 from urllib.parse import unquote
+from inspect import iscoroutinefunction
 
 _is_option = None
 
@@ -41,6 +42,7 @@ class Driver(ABC):
             self._conn_str = connection_string.connection_string
             self._on_open_close = on_open_close or connection_string._on_open_close
             return
+        self._notify = notify
         self._on_open_close = on_open_close
         connection_string = connection_string.strip()
         connection_string, options = connection_string.split("{",1) if "{" in connection_string and connection_string.endswith("}") else connection_string, "}"
@@ -79,6 +81,14 @@ class Driver(ABC):
             out_params["host"] = unquote(connection_string)
         else:
             out_params["database"] = unquote(connection_string)
+
+    async def _notify_callback(self, notify):
+        if isinstance(self._notify, list):
+            self._notify.append(notify)
+        elif iscoroutinefunction(self._notify):
+            await self._notify(notify)
+        elif callable(self._notify):
+            self._notify(notify)
 
     @property
     def connection_string(self):

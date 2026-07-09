@@ -25,6 +25,7 @@ def decode_array(buf):
             if item_l > 0:
                 buf = buf[item_l+2:]
                 valid = len(item) == item_l
+                item = item.encode('utf-8').decode('unicode-escape')
             else:
                 item = None
                 valid = True
@@ -55,6 +56,7 @@ def decode_buf(buf):
         else:
             buf =buf[:l]
             valid = len(buf)==l
+            buf = buf.encode('utf-8').decode('unicode-escape')
     elif buf[0] == ":":
         buf = buf.split("\r\n",1)[0][1:]
         buf = int(buf)
@@ -82,13 +84,15 @@ def prepare_cmd(query:str):
             quot2 = not quot2
         elif quot or quot2:
             data += x
-        elif x == " " and data != "":
-            cmd_parts.append(data)
+        elif x == " " and data == "":
+            ...
+        elif x == " ":
+            cmd_parts.append(data.encode("unicode_escape").decode("ascii"))
             data = ""
         else:
             data += x
     if data:
-        cmd_parts.append(data)
+        cmd_parts.append(data.encode("unicode_escape").decode("ascii"))
 
     data = ["*%s\r\n" % len(cmd_parts)]
     for arg in cmd_parts:
@@ -118,6 +122,7 @@ class Driver(BaseDriver):
         self._read_task = None
         self._writer: Optional[asyncio.StreamWriter] = None
         self._queue: asyncio.Queue[bytes] = asyncio.Queue()
+        self._waiting = False
 
     @property
     def in_transaction(self)->bool:
@@ -143,6 +148,7 @@ class Driver(BaseDriver):
         data = prepare_cmd(query)
 
         self._writer.write(data.encode('utf-8'))
+        self._waiting = True
         await self._writer.drain()
 
         # Ждём ответ
@@ -161,16 +167,29 @@ class Driver(BaseDriver):
             # Ошибка чтения — соединение, скорее всего, разорвано
             await self.rollback()
             raise e
+        finally:
+            self._waiting = False
         return ret
 
     async def _read_loop(self) -> None:
         while self.in_transaction:
             try:
+                buf = b""
                 while not self._conn.at_eof():
                     chunk = await self._conn.read(4096)
                     if not chunk:
                         break
-                    await self._queue.put(chunk)
+                    if self._waiting:
+                        await self._queue.put(chunk)
+                        buf = b""
+                    else:
+                        buf += chunk
+                        ret, valid = decode_buf(buf.decode('utf-8', errors='ignore'))
+                        if valid:
+                            buf = b""
+                            if isinstance(ret, list) and ret[0]=="message":
+                                del ret[0]
+                                await self._notify_callback(ret)
             except Exception as e:
                 ...
             await asyncio.sleep(0.1)
