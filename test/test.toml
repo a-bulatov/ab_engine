@@ -11,3 +11,4 @@ plugin_path = "./"
 
 [database]
 db = "postgresql://localhost:5432/postgres?user=postgres&password=postgres"
+valkey = "valkey://10.0.0.57:6379/0"
