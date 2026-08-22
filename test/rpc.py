@@ -75,6 +75,47 @@ async def main3():
     print(x)
 
 
+async def main4():
+    Config("test.toml")
+    register_rpc_list({
+        "db_ver":{
+           "sql": "select version()",
+           "ext": "ONE"
+        },
+        "hello":"self",
+        "hello2":{
+            "sql":"""
+            do $$
+            declare
+              nm varchar;
+            begin
+              nm = $name::varchar;
+              raise notice 'Hello % !!', nm;
+            end $$
+            """,
+            "ext": ["NOTICE","ONE"]
+        },
+        "set":{
+            "sql":"set $key $value",
+            "ext":"DB(valkey)"
+        },
+        "get":{
+            "sql":"get $key",
+            "ext":"DB(valkey)"
+        }
+    })
+
+    x = await call_rpc("set", key="test", value=1234)
+    print(x)
+    x = await call_rpc("get", key="test")
+    print(x)
+
+    x = await call_rpc("hello2", name="Andrew")
+    print(x)
+    x = await call_rpc("db_ver")
+    print(x)
+
+
 if __name__ == '__main__':
-    run_async(main3())
+    run_async(main4())
 

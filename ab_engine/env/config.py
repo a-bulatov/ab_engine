@@ -451,7 +451,9 @@ class Config:
 
         if isinstance(msg, Exception):
             level = LogLevel.ERROR
+            sql = False
         else:
+            sql = level == LogLevel.SQL
             level = self._parse_log_level(level)
             msg = str(msg)
         if level.value < self.log_level.value:
@@ -479,15 +481,15 @@ class Config:
                     info = log_to.findCaller(stacklevel=lvl)
                     p = str(Path(__file__).parent.parent)
                     while info[0].startswith(p):
-                         lvl += 1
-                         x = log_to.findCaller(stacklevel=lvl)
-                         if '/venv/' in x[0]:
-                             break
-                         elif not x[0].startswith(p):
-                             info = x
-                             break
-                         else:
-                             info = x
+                        lvl += 1
+                        x = log_to.findCaller(stacklevel=lvl)
+                        if '/venv/' in x[0]:
+                            break
+                        elif not x[0].startswith(p):
+                            info = x
+                            break
+                        else:
+                            info = x
                 else:
                     info = log_to.findCaller(stacklevel=kwargs.get('stacklevel', 2))
 
@@ -510,6 +512,8 @@ class Config:
 
             params["msg"] = f"{msg}"
             info = log_to.makeRecord(**params)
+            if sql:
+                info.levelname = "SQL"
             log_to.handle(info)
         except Exception as e:
             # Больше вывести некуда - выводим на стандартный вывод

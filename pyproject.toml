@@ -1,6 +1,6 @@
 [project]
 name = "ab_engine"
-version = "0.1.8"
+version = "0.1.9"
 description = "Library of standard modules"
 authors = [{name = "Andrew Bulatov", email = "BulatovAndrew@gmail.com"}]
 license = "MIT"
@@ -17,3 +17,5 @@ Repository = "https://github.com/a-bulatov/ab_engine"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+[tool.setuptools.package-data]
+ab_engine = ["*.yaml"]

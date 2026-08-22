@@ -5,7 +5,7 @@ from pathlib import Path
 from importlib.machinery import SourceFileLoader
 from json5 import loads
 from asyncio import BoundedSemaphore, wait_for, TimeoutError, sleep
-from ..error import raise_error
+from ..error import error
 from inspect import iscoroutinefunction
 from typing import Callable
 from gc import collect as garbage_collect
@@ -66,6 +66,25 @@ class Option(ABC):
         """
         return ret_data, row_factory
 
+    @staticmethod
+    def create(option:str, *args, **kwargs):
+
+        def find(parent_cls, name):
+            for x in parent_cls.__subclasses__():
+                if x.__name__ == name:
+                    return x
+                else:
+                    x = find(x, name)
+                    if x:
+                        return x
+            return None
+
+        x = find(Option, option)
+        if x is None:
+            raise error("CLASS_NOT_FOUND", name=option)
+        return x(*args, **kwargs)
+
+
 _set_is_option(Option.is_option)
 
 class ALL(Option):
@@ -98,7 +117,7 @@ class DB(Option):
             try:
                 _check_cfg()
             except Exception as e:
-                raise_error("NA_DB", connection=str(e))
+                raise error("NA_DB", connection=str(e))
             connection_string = _CFG_.db_connection(connection_string)
         driver_name, connection_string = connection_string.split("://", 1)
 
@@ -216,6 +235,22 @@ class TIMEOUT(Option):
                 raise e
             return None
 
+class NOTICE(DB):
+
+    def __init__(self, connection_string: str=""):
+        self._notify = []
+        super().__init__(connection_string, self._notify)
+
+    @classproperty
+    def can_process(cls):
+        return True
+
+    async def process(self, ret_data=None, connection=None, row_factory=None):
+        ret = self._notify.copy()
+        self._notify.clear()
+        return ret, None
+
+
 class DICT(Option):
     """
     Указывает, что результат следует вернуть как список dict (по умолчанию)
@@ -260,6 +295,10 @@ class ONE(ROW):
     async def process(ret_data, connection, row_factory):
         if ret_data is None or isinstance(ret_data, int):
             return ret_data, None
+        elif row_factory is None and isinstance(ret_data, list):
+            if len(ret_data) == 0:
+                return None
+            return ret_data[0], RowFactory.ANY
         match row_factory:
             case RowFactory.TUPLE:
                 return ret_data[0], None
@@ -286,7 +325,7 @@ class JSON(ONE):
         elif isinstance(ret_data, str):
             return loads(ret_data), None
         else:
-            raise_error("NOT_CONV_DICT_LIST", data=ret_data)
+            raise error("NOT_CONV_DICT_LIST", data=ret_data)
 
 class ROLLBACK(Option):
     """
@@ -325,7 +364,7 @@ class PAGE(Option):
         :param offset: смещение от начала
         """
         if not(isinstance(limit, int) and isinstance(offset, int)) or limit < 0 or offset < 0:
-            raise_error("BAD_LIMIT_OFFSET")
+            raise error("BAD_LIMIT_OFFSET")
         self._limit = limit
         self._offset = offset
 
@@ -361,7 +400,7 @@ class CALLBACK(Option):
 
     def __getitem__(self, item):
         if self._attrs is None:
-            raise_error("ATTR_NOT_FOUND", name=item)
+            raise error("ATTR_NOT_FOUND", name=item)
         return self._attrs[item]
 
 

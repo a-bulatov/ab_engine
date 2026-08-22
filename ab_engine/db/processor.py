@@ -1,6 +1,6 @@
-from .option import Option, DB, TIMEOUT, PAGE, CALLBACK, ITERATOR, RAW
+from .option import Option, DB, TIMEOUT, PAGE, CALLBACK, ITERATOR, RAW, NOTICE
 from .driver import RowFactory
-from ..error import raise_error
+from ..error import error
 
 CONNECTION:str = ""
 
@@ -19,38 +19,38 @@ async def sql(query:str, *args, **kwargs):
             if one_row is None and arg.one_row is not None:
                 one_row = arg
             elif one_row and arg.one_row is not None and one_row.one_row!=arg.one_row:
-                raise_error("NEQ_ROWS", src1=one_row.__class__.__name__, src2=arg.__class__.__name__)
+                raise error("NEQ_ROWS", src1=one_row.__class__.__name__, src2=arg.__class__.__name__)
             if row_factory is None or row_factory.row_factory == RowFactory.ANY:
                 row_factory = arg
             elif row_factory and arg.row_factory != RowFactory.ANY:
-                raise_error("DEF_STR_FABRIC", src = row_factory.__class__.__name__)
+                raise error("DEF_STR_FABRIC", src = row_factory.__class__.__name__)
+            if arg in (DB, NOTICE):
+                arg = arg()
+            if isinstance(arg, DB) and db is None:
+                db = arg
             if arg.can_process:
                 process.append(arg)
                 continue
-            if arg == DB:
-                arg = DB()
-            if isinstance(arg, DB) and db is None:
-                db = arg
-            elif isinstance(arg, CALLBACK) and callback is None:
+            if isinstance(arg, CALLBACK) and callback is None:
                 callback = arg
             elif isinstance(arg, DB):
-                raise_error("DB_ALRDY_DEF")
+                continue #raise error("DB_ALRDY_DEF")
             elif isinstance(arg, PAGE) and page is None:
                 page = arg
             elif isinstance(arg, PAGE):
-                raise_error("PAGE_ALRDY_DEF")
+                raise error("PAGE_ALRDY_DEF")
             elif isinstance(arg, TIMEOUT) and tm is None:
                 tm = arg
             elif isinstance(arg, TIMEOUT):
-                raise_error("TIMEOUT_ALRDY_DEF")
+                raise error("TIMEOUT_ALRDY_DEF")
             elif arg == ITERATOR:
                 itr = ITERATOR()
             elif isinstance(arg, ITERATOR):
                 itr = arg
-            elif arg == RAW:
+            elif arg == RAW or isinstance(arg, RAW):
                 parse = False
         elif process:
-            raise_error("PMT_BEF_OPT")
+            raise error("PMT_BEF_OPT")
     if process:
         args = args[:process.pop(0)]
     if db is None:
@@ -61,17 +61,16 @@ async def sql(query:str, *args, **kwargs):
     await db.garbage_collect(False)
     one_row = one_row.one_row if one_row else False
     row_factory = row_factory.row_factory if row_factory and row_factory.row_factory != RowFactory.ANY else RowFactory.DICT
-    if callback:
-        kwargs["__PARAM_CALLBACK_GETTER"] = callback
     if parse:
         query = await db.connection.parse_query(query, *args, **kwargs)
     if page:
         query = await page(db.connection, query)
     if callback is not None:
+        kwargs["__PARAM_CALLBACK_GETTER"] = callback
         query = await callback(query)
     if itr:
         if page:
-            raise_error("PAGE_ITERATOR")
+            raise error("PAGE_ITERATOR")
         return itr(query, db, row_factory, process)
     try:
         if tm is None:

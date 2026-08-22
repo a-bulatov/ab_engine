@@ -168,7 +168,8 @@ class Driver(ABC):
         if callback:=kwargs.get("__PARAM_CALLBACK_GETTER"):
             del kwargs["__PARAM_CALLBACK_GETTER"]
         qs = None
-        for x in query.split("$"):
+
+        for x in query.replace("$$", "🗿").split("$"):
             if qs is None:
                 qs = x
                 continue
@@ -195,7 +196,7 @@ class Driver(ABC):
             qs += f"{self.var_to_sql(n, x)}{x}"
             
         if qs:
-            query = qs
+            query = qs.replace("🗿", "$$")
 
         return query
 

@@ -3,9 +3,10 @@ from os import sep as file_sep
 from .fnc import *
 from ..error import error
 from ..env import Config, DB_ENV
-from sys import argv as sys_argv
+from ..db.option import Option
+from sys import argv as sys_argv, modules
 from pathlib import Path
-
+import inspect
 
 def _split_module_fnc(module_name: str):
     # можно передать в пути реальное имя функции после :
@@ -143,3 +144,115 @@ async def call_rpc(name_of_rpc_method_for_call, current_rpc_environment_for_call
         if current_rpc_environment_for_call.in_transaction:
             await current_rpc_environment_for_call.rollback()
         raise e
+
+def split_params(params:str)->list:
+    ret, s, q, lq = [], "", "", False
+
+    def add_ret():
+        nonlocal ret, s, lq
+        if lq:
+            ret.append(s)
+            lq = False
+            return
+        elif s == "":
+            ret.append(None)
+            return
+        elif s.isnumeric():
+            try:
+                s = int(s)
+            except Exception as e:
+                s = float(s)
+            ret.append(s)
+            return
+        lwr = s.lower()
+        if s == "true":
+            ret.append(True)
+        elif s == "false":
+            ret.append(False)
+        else:
+            ret.append(s)
+
+    for ch in params:
+        if ch == q:
+            q = ""
+            lq = True
+        elif ch in ('"',"'"):
+            q = ch
+        elif ch == "," and q == "":
+            add_ret()
+            s = ""
+        else:
+            s += ch
+
+    if s:
+        add_ret()
+    return ret
+
+
+def register_list(defs:list | dict, self=None)->None:
+    """
+    Регистрирует для RPC функции, переданные в списке или в словаре.
+    в случае, если описания передаются в словаре, то ключ словаря это имя функции в API
+    если описания передаются списком, то имя функции передается в атрибуте name
+    :param defs: писок или словарь с описанием функций, элементыы которого имеют следующую структуру:
+        name: имя функции в API (не нужно, если описание передается в словаре)
+        function: имя реально вызываемой функции, если оно отличается от name
+        sql: запрос sql, реализующий функцию, если передан sql, то не нужно передавать function и type
+        help: описание функции. если не задано - берется из функции
+        type: тип функции
+            self - функция из объекта, переданного в параметре self (см. ниже)
+            py   - функция из плагина python
+            db   - функция БД
+        для функций с типом self для которых name==function возможна запись:
+            имя_функции: self
+        ext: дополнительные параметры регистрации, если нужны. для sql это могут быть опции или их имена
+    :param self: объект или модуль, из которого берем функции с типом self. если не передан,
+            то из модуля, откуда вызвана данная функция
+    """
+    if self is None:
+        frame = inspect.currentframe().f_back
+        x = frame.f_globals.get('__name__')
+        self = modules.get(x)
+    if isinstance(defs, dict):
+        ...
+    elif isinstance(defs, list):
+        defs = {x["name"]:x for x in defs}
+    else:
+        raise error("BAD_RPC_FORMAT")
+    for x in defs:
+        fnc = defs[x]
+        if "sql" in fnc:
+            if "ext" in fnc:
+                fn = []
+                if isinstance(fnc["ext"], str):
+                    fnc["ext"] = [fnc["ext"],]
+                for opt in fnc["ext"]:
+                    if not isinstance(opt, str):
+                        fn.append(opt)
+                        continue
+                    if "(" in opt:
+                        opt, params = opt.split("(",1)
+                        params = params.strip()
+                        if not params.endswith(")"):
+                            raise error("NOT_FOUND_)", context=f"ext: {fnc['ext']}")
+                        params = split_params(params[:-1].strip())
+                        opt = Option.create(opt, *params)
+                    else:
+                        opt = Option.create(opt)
+                    fn.append(opt)
+                fn = tuple([fnc["sql"]] + fn)
+            else:
+                fn = fnc["sql"]
+            SqlFnc(x, fn, help=fnc.get('help'))
+        elif fnc == "self":
+            fn = getattr(self, x)
+            PythonFnc(x, fn)
+        else:
+            match fnc.get("type", "db"):
+                case "db":
+                    SqlFnc(x, f"\JSON {fnc['function']}(JSONB)", help=fnc.get('help'))
+                case "self":
+                    fn = getattr(self, fnc['function'])
+                    PythonFnc(x, fn, help = fnc.get('help') )
+                case _:
+                    register(x, fnc["function"], help = fnc.get('help'))

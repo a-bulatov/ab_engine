@@ -117,3 +117,7 @@
 - code: BAD_RPC_METHOD
   msg: Имя метода содержит недопустимое значение
   class: ValueError
+- code: CLASS_NOT_FOUND
+  msg: Класс {name} не найден
+- code: NOT_FOUND_)
+  msg: Нет закрывающей скобки {context}

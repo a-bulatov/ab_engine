@@ -175,7 +175,7 @@ class Driver(BaseDriver):
         while self.in_transaction:
             try:
                 buf = b""
-                while not self._conn.at_eof():
+                while not self._conn.at_eof() and self.in_transaction:
                     chunk = await self._conn.read(4096)
                     if not chunk:
                         break
@@ -207,13 +207,49 @@ class Driver(BaseDriver):
             return
 
         try:
+            self._conn = None
             self._writer.close()
             await self._writer.wait_closed()
         finally:
-            self._conn = None
             self._writer = None
             self._read_task = None
             await super().rollback()
 
     async def table_struct(self, table_name) -> dict:
         return {}
+
+    async def parse_query(self, query, *args, **kwargs):
+        if callback:=kwargs.get("__PARAM_CALLBACK_GETTER"):
+            del kwargs["__PARAM_CALLBACK_GETTER"]
+        qs = None
+
+        for x in query.split("$"):
+            if qs is None:
+                qs = x
+                continue
+            n, p = '', 0
+            if str(x[p]).isdigit():
+                while p < len(x) and x[p].isdigit():
+                    n += x[p]
+                    p += 1
+                n = int(n) - 1
+                if n < 0 or n >= len(args):
+                    raise AttributeError(f"Attribute with index {n} is not exists")
+                n = args[n]
+            else:
+                while p < len(x) and not(x[p].isspace() or x[p] in "(:,)"):
+                    n += x[p]
+                    p += 1
+                if n in kwargs:
+                    n = kwargs[n]
+                elif callback:
+                    n = callback[n]
+                else:
+                    raise AttributeError(f"Attribute with name {n} is not exists")
+            x = x[p:]
+            qs = f"{qs}{n}{x}"
+
+        if qs:
+            query = qs
+
+        return query
