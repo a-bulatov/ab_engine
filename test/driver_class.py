@@ -16,10 +16,10 @@ class MyPgDriver(Driver):
         await super().rollback()
         print("END TRANSACTION", flush=True)
 
-DRIVER_CLASSES["postgresql"] = MyPgDriver
+DRIVER_CLASSES["my_pg"] = MyPgDriver
 
 async def main():
-    x = await sql("select version();", ONE, DB("postgresql://localhost:5432/postgres?user=postgres&password=postgres"))
+    x = await sql("select version();", ONE, DB("my_pg://postgres:postgres@localhost:5432/postgres"))
     print(x)
     await DB.garbage_collect()
 
