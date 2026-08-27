@@ -34,12 +34,13 @@ async def test():
     #print("MySql version:", x)
 
 async def peer():
-    x = await sql("select version()", ONE, DB("postgresql://postgres"))
+    # для peer просто указываем имя БД и, если нужно, дополнительные параметры соединения
+    x = await sql("select version()", ONE, DB("postgresql://postgres?application_name=test"))
     #x = await sql("select version()", ONE, DB("postgresql://postgres:postgres@localhost:5432/postgres"))
     print(x)
 
 if __name__ == '__main__':
     # при использовании конфигурации из БД важно вызвать Config перед стартом основного цикла
-    Config('postgresql://localhost:5432/postgres?user=postgres&password=postgres{"query":"select k, v, id, parent_id from config"}')
-    run_async(test())
-    #run_async(peer())
+    #Config('postgresql://localhost:5432/postgres?user=postgres&password=postgres{"query":"select k, v, id, parent_id from config"}')
+    #run_async(test())
+    run_async(peer())
