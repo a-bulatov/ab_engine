@@ -126,11 +126,15 @@ class DB(Option):
         driver = DRIVER_CLASSES.get(driver_name)
         driver_path = None
         if conn_params:
-            conn_params = conn_params[:-1].split("&")
+            conn_params = conn_params[:-1]
+            mono_params = [x for x in conn_params.split("&") if "=" not in x ]
+            conn_params = {x[0].strip():x[1].strip() for x in [x.split("=", 1) for x in conn_params.split("&") if "=" in x]}
             if "driver_path" in conn_params:
                 driver_path = conn_params["driver_path"]
                 del conn_params["driver_path"]
-            conn_params = "?" + "&".join(conn_params)
+            conn_params = "?" + "&".join([f"{x}={conn_params[x]}" for x in conn_params])
+            if mono_params:
+                conn_params +="&" + "&".join(mono_params)
         connection_string += conn_params
         if driver is None:
             if driver_path is None and _CFG_ and _CFG_.initialized:

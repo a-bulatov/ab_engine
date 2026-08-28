@@ -88,11 +88,11 @@ class DB_ENV(UserDict):
         return ret.value if isinstance(ret, Property) else ret
 
     def __setitem__(self, key, value):
-        x = self.get(key)
+        x = self.data.get(key)
         if isinstance(x, Property):
             x.value = value
         else:
-            super.__setitem__(key, value)
+            super().__setitem__(key, value)
 
     def has_item(self, key):
         # возвращает True если в данном DB_ENV хранится переменная с именем key
@@ -140,7 +140,7 @@ class DB_ENV(UserDict):
             query = await self._context.connection.parse_func(query, **kwargs)
         elif cmd==r"\d":
             return await self._context.connection.table_struct(query.strip())
-        elif cmd=="\json":
+        elif cmd==r"\json":
             query, params = query.split("(", 1)
             if params.lower() in ("json)", "jsonb)"):
                 args = (kwargs,) + args

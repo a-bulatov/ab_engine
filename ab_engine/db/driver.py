@@ -1,6 +1,6 @@
 from enum import Enum
 from json import dumps
-from datetime import datetime
+from datetime import datetime, time
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import Optional
@@ -158,7 +158,7 @@ class Driver(ABC):
         elif isinstance(var, dict):
             var = dumps(var, ensure_ascii=False).replace("'", "''")
             return reencode(var)
-        elif isinstance(var, datetime):
+        elif isinstance(var, (datetime, time)):
             return f" '{var}'"
         else:
             return f" {var}"

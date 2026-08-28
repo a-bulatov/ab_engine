@@ -19,7 +19,11 @@ _Info = namedtuple("Info", ["column_name", "data_type", "is_nullable", "characte
                        "numeric_precision", "numeric_scale", "column_default", "autoincrement", "pk"])
 
 def _field_ifo_tuples(fields, str_fields):
-    str_fields = str_fields["sql"].split("\n", 1)[1][:-1].strip().split("\n")
+    str_fields = str_fields["sql"].split("\n", 1)
+    if len(str_fields) > 1:
+        str_fields = str_fields[1][:-1].strip().split("\n")
+    else:
+        str_fields = []
     str_def = {}
     for x in str_fields:
         n, x = x.strip().split(" ", 1)
@@ -30,7 +34,7 @@ def _field_ifo_tuples(fields, str_fields):
             sz = int(sz)
         else:
             sz = None
-        ai = str_def[row["name"]]
+        ai = str_def.get(row["name"],[])
         fields[n] = _Info(column_name=row["name"], data_type=row["type"].lower(), character_maximum_length=sz,
                           column_default=row["dflt_value"], is_nullable=row["notnull"] == 0 and row["pk"] == 0,
                           autoincrement=" autoincrement" in ai, pk=row["pk"],

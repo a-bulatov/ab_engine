@@ -10,7 +10,7 @@ import logging as LOG
 from enum import Enum
 from .timer import TimerList
 from ..class_tools import classproperty
-from ..error import raise_error, error_msg
+from ..error import error, error_msg
 import asyncio
 
 
@@ -60,7 +60,7 @@ def typed_val(key, values: dict):
             case 'STR)':
                 return str(v), key
             case 'FLOAT)':
-                return float(t), key
+                return float(v), key
             case _:
                 return v
     return v, key
@@ -74,6 +74,10 @@ def from_env(key:str, key_map:dict):
         eval_key = "x" + "".join(eval_key)
     else:
         eval_key = f"x['{key}']"
+
+    if any(char in eval_key for char in ("+", "-", "*", "/", "(", ")", "%", " ")):
+        raise error("BAD_KEY", key=eval_key)
+
     node = eval(eval_key, {"x": Config._settings}) if key else Config._settings[key]
     node.update(ret)
 
@@ -114,11 +118,11 @@ class Config:
                 case ".toml":
                     return toml_load(data)
                 case _:
-                    raise_error("BAD_FORMAT", format_name=fn)
+                    raise error("BAD_FORMAT", format_name=fn)
 
         self._log_level = LogLevel.INFO
         if path is None:
-            raise_error("BAD_CONFIG_PATH")
+            raise error("BAD_CONFIG_PATH")
         elif isinstance(path, dict):
             Config._settings = path
         elif isinstance(path, str):
@@ -133,7 +137,9 @@ class Config:
                     if isinstance(dest, dict):
                         dest.update(item)
                     else:
-                        data[x] = item
+                        Config._settings[x] = item
+        else:
+            raise error("BAD_CONFIG_TYPE")
 
         if not Config._settings:
             Config._settings = {}
@@ -145,6 +151,7 @@ class Config:
                 f = Config._settings.get(x)
                 if isinstance(f, str):
                     Config._settings[x] = load(f)
+        self.__log_timers = {}
         if "logging" in Config._settings:
             self._logger = ...
             if self.logger:
@@ -262,7 +269,7 @@ class Config:
 
     def __getattr__(self, item):
         if not(item in Config._settings):
-            raise_error("ATTR_NOT_FOUND", name=item)
+            raise error("ATTR_NOT_FOUND", name=item)
         return Config._settings[item]
 
     @property
@@ -359,7 +366,7 @@ class Config:
 
         hndl = self.logging["handler"]["class"]
         for x in LOG.Handler.__subclasses__():
-            if x.__name__ == self.logging["handler"]:
+            if x.__name__ == hndl:
                 hndl = x
                 break
 
@@ -373,7 +380,7 @@ class Config:
                     hndl = x
                     break
             if isinstance(hndl, str):
-                raise_error("BAD_LOG_HANDLER", handler=self.logging['handler'])
+                raise error("BAD_LOG_HANDLER", handler=self.logging['handler'])
 
         self._logger = logging.getLogger(self._name)
 
@@ -407,7 +414,7 @@ class Config:
         if self.logging["handler"]["class"] == "TimedRotatingFileHandler":
             x = params.get('filename')
             if x is None:
-                raise_error("NA_FILE_NAME")
+                raise error("NA_FILE_NAME")
             Path(x).parents[0].mkdir(parents=True, exist_ok=True)
             with open(x, 'a'):
                 ...
@@ -522,7 +529,7 @@ class Config:
 
     def db_connection(self, connection:str="")->str:
         if not Config.hasattr("database"):
-            raise_error("NA_DB_IN_CONFIG")
+            raise error("NA_DB_IN_CONFIG")
         db = self.database
         if isinstance(db, str) and connection=="":
             return db
@@ -530,5 +537,5 @@ class Config:
             dflt = self.defaults if self.hasattr("defaults") else {}
             db = db.get(connection, db.get(dflt.get("database", "main")))
         if not db:
-            raise_error("NA_DB", connection=connection)
+            raise error("NA_DB", connection=connection)
         return db

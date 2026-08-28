@@ -35,6 +35,9 @@
 - code: BAD_FN_PARAMS
   class: RuntimeError
   msg: Ошибка параметров регистрации функции {name} {defs}
+- code: BAD_KEY
+  class: RuntimeError
+  msg: ключ не может содержать знаков операций, открывающих круглых скобок и пробелов {key}
 ### Ошибки JsonRPC
 - code: -32700
   msg: Ошибка разбора сообщения # "Parse error"
@@ -56,6 +59,9 @@
 - code: BAD_CONFIG_PATH
   class: AttributeError
   msg: Не задан путь к файлу конфигурации
+- code: BAD_CONFIG_TYPE
+  class: AttributeError
+  msg: Неизвестный формат данных конфигурации
 - code: INFO_LOG_START
   msg: Настройки логирования инициализированы
 - code: ATTR_NOT_FOUND

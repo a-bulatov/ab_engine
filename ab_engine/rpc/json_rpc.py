@@ -29,19 +29,17 @@ class JSON_RPC:
         if header:
             if "id" in header:
                 code["id"] = header["id"]
-        else:
-            header = {}
-        code["jsonrpc"] = header.get("jsonrpc", "2.0")
+            code["jsonrpc"] = header.get("jsonrpc", "2.0")
         return code
 
     def __init__(self, connection = None):
         self._con = connection
 
-    async def _rpc(self, env, method, header, params):
+    async def _rpc(self, env, method, params):
         # можно перезагрузить в наследниках, чтобы например, вызывать команды мз другого списка
         f = Fnc.search(method)
         if f is None:
-            return self.rpc_error(-32601, header=header)
+            return self.rpc_error(-32601)
         if isinstance(params, list):
             params = {"LIST_OF_PARAMS": params}
         elif not isinstance(params, dict):
@@ -59,12 +57,14 @@ class JSON_RPC:
         f = message['method']
         self.log(f"CALL:{f}")
         try:
-            res = await self._rpc(env, f, message, params)
-            if isinstance(res, tuple):
-                res = list(res)
+            res = await self._rpc(env, f, params)
+            if isinstance(res, dict) and len(res) == 1 and "error" in res:
+                ...
+            elif isinstance(res, tuple):
+                res = {"result": list(res)}
             elif not isinstance(res, (dict, list, str)):
-                res = str(res)
-            elif not (isinstance(res, dict) and len(res) == 1 and "error" in res):
+                res = {"result": str(res)}
+            else:
                 res = {"result": res}
             res["jsonrpc"]=message.get("jsonrpc", "2.0")
             if res["jsonrpc"]=="1.0":

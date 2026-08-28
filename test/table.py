@@ -60,5 +60,4 @@ async def test():
 
 
 if __name__ == '__main__':
-    raise error("DB_ALRDY_DEF")
     run_async(test())

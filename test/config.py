@@ -11,6 +11,13 @@ async def test():
         print(x)
     print("----------------------------------")
 
+def test_log():
+    c = Config({'logging': {'level': 'off'}})
+    print(c.log_level)   # LogLevel.OFF
+    print(c.logger)
+    c.log("Не выведется")# <RootLogger root (Level -1)>
+
 if __name__ == '__main__':
     print(sys.executable)
-    run_async(test())
+    test_log()
+    #run_async(test())

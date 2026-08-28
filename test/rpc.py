@@ -27,7 +27,6 @@ def hello(name="World"):
 
 
 async def main():
-    cfg = Config("test.toml")
     register_rpc("hello", hello)
     register_rpc("plugin", "_plugin.py:test")
 
@@ -68,7 +67,6 @@ async def main2():
     await call_rpc('async')
 
 async def main3():
-    Config("test.toml")
     register_rpc("plugin", "_plugin.py:with_env")
     env = DB_ENV(c=3, d=4)
     x = await call_rpc("plugin", env, a=1, b=2)
@@ -76,7 +74,6 @@ async def main3():
 
 
 async def main4():
-    Config("test.toml")
     register_rpc_list({
         "db_ver":{
            "sql": "select version()",
@@ -115,7 +112,14 @@ async def main4():
     x = await call_rpc("db_ver")
     print(x)
 
+async def main5():
+    register_rpc_list({'mul_sql': {'sql': 'select $a * $b', 'ext': 'ONE'}})
+    x = await call_json({'method':'unknown_method','id':7})
+    print(x)
+    x = await call_json({'method':'mul_sql','params':{'a':3,'b':4},'id':1})
+    print(x)
 
 if __name__ == '__main__':
-    run_async(main4())
+    Config("test.toml")
+    run_async(main5())
 

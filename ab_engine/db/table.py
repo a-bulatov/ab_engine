@@ -193,7 +193,7 @@ class Field:
             q = f"{q} where {self.table._filter}"
         ret = await sql(q, self.table._db, ONE)
         if self.table._auto_close_conn:
-            self.table._db.rollback()
+            await self.table._db.connection.rollback()
         return ret
 
     async def min(self):
@@ -648,7 +648,7 @@ class EnvTable(Table):
 
     @classmethod
     async def create(cls, table_name, env, page_size=100, async_delay=0.0001):
-        table_struct = await env.sql("\d "+table_name)
+        table_struct = await env.sql(r"\d "+table_name)
         if not table_struct:
             raise_error("NA_TABLE", name=table_name)
         t = cls(table_struct, env, page_size, async_delay)

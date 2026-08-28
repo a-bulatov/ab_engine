@@ -250,7 +250,7 @@ def register_list(defs:list | dict, self=None)->None:
         else:
             match fnc.get("type", "db"):
                 case "db":
-                    SqlFnc(x, f"\JSON {fnc['function']}(JSONB)", help=fnc.get('help'))
+                    SqlFnc(x, f"{r'\JSON'} {fnc['function']}(JSONB)", help=fnc.get('help'))
                 case "self":
                     fn = getattr(self, fnc['function'])
                     PythonFnc(x, fn, help = fnc.get('help') )

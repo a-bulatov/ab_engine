@@ -61,12 +61,13 @@ async def sql(query:str, *args, **kwargs):
     await db.garbage_collect(False)
     one_row = one_row.one_row if one_row else False
     row_factory = row_factory.row_factory if row_factory and row_factory.row_factory != RowFactory.ANY else RowFactory.DICT
+    if callback is not None:
+        kwargs["__PARAM_CALLBACK_GETTER"] = callback
     if parse:
         query = await db.connection.parse_query(query, *args, **kwargs)
     if page:
         query = await page(db.connection, query)
     if callback is not None:
-        kwargs["__PARAM_CALLBACK_GETTER"] = callback
         query = await callback(query)
     if itr:
         if page:
