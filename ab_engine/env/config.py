@@ -14,6 +14,9 @@ from ..error import error, error_msg
 import asyncio
 
 
+_LIB_PATH = str(Path(__file__).parent.parent)
+
+
 class LogLevel(Enum):
     CRITICAL = LOG.CRITICAL
     FATAL = LOG.FATAL
@@ -482,32 +485,31 @@ class Config:
                 "extra": None,
                 "sinfo": None
             }
-            if self._log_level.value <= LogLevel.DEBUG.value or isinstance(msg, Exception):
-                if 'stacklevel' not in kwargs:
-                    lvl = 2
-                    info = log_to.findCaller(stacklevel=lvl)
-                    p = str(Path(__file__).parent.parent)
-                    while info[0].startswith(p):
-                        lvl += 1
-                        x = log_to.findCaller(stacklevel=lvl)
-                        if '/venv/' in x[0]:
-                            break
-                        elif not x[0].startswith(p):
-                            info = x
-                            break
-                        else:
-                            info = x
-                else:
-                    info = log_to.findCaller(stacklevel=kwargs.get('stacklevel', 2))
+            #if self._log_level.value <= LogLevel.DEBUG.value or isinstance(msg, Exception):
+            if level.value > LogLevel.DEBUG.value:
+                info = ("", "", "")
+            elif 'stacklevel' not in kwargs:
+                lvl = 2
+                info = log_to.findCaller(stacklevel=lvl)
+                while info[0].startswith(_LIB_PATH):
+                    lvl += 1
+                    x = log_to.findCaller(stacklevel=lvl)
+                    if not x[0].startswith(_LIB_PATH):
+                        info = x
+                        break
+                    else:
+                        info = x
+            else:
+                info = log_to.findCaller(stacklevel=kwargs.get('stacklevel', 2))
 
-                if isinstance(msg, Exception):
-                    params["fn"] = info[0]
-                else:
-                    x = info[0].rsplit("/", 2)
-                    del x[0]
-                    params["fn"] = '/'.join(x)
-                params["func"] = info[2]
-                params["lno"] = info[1]
+            if isinstance(msg, Exception):
+                params["fn"] = info[0]
+            else:
+                x = info[0].rsplit("/", 2)
+                del x[0]
+                params["fn"] = '/'.join(x)
+            params["func"] = info[2]
+            params["lno"] = info[1]
 
             if "timer" in kwargs:
                 n = kwargs["timer"]

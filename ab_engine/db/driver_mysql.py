@@ -69,8 +69,16 @@ class Driver(BaseDriver):
             self._conn_params[k] = v
 
     async def begin(self):
-        await self._before_open()
+        params = await self._before_open()
         self._conn = await connect(**self._conn_params)
+        if params:
+            cur = await self._conn.cursor()
+            try:
+                for x in params:
+                    p = x if x.startswith("@") else f"@{x.strip()}"
+                    await cur.execute(f"SET {p} = '{params[x]}'")
+            finally:
+                await cur.close()
 
     async def sql(self, query, one_row=False, row_factory=RowFactory.DICT):
         if self._conn is None:

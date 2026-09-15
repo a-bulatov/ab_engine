@@ -56,8 +56,10 @@ class Driver(BaseDriver):
         for x in params:
             if x == "TIMEZONE":
                 await self._conn.execute(f"set session timezone '{params[x]}'")
+            elif x.startswith("pg_"):
+                await self._conn.execute(f"SET {x[3:]} = '{params[x]}'")
             else:
-                await self._conn.execute(f"SET {x} = '{params[x]}'")
+                await self._conn.execute(f"select set_config('{x if '.' in x else f'my_app.{x}'}','{params[x]}', true)")
         if self._notify:
             self._conn.add_notify_handler(self._notify_callback)
 

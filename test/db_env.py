@@ -18,13 +18,14 @@ async def main():
 
     notifyes = []
 
-    env = DB_ENV(a=2, notify=notifyes)
+    env = DB_ENV(a=2, notify=notifyes, db_params={"x"}, x="test param") # sent param x to postgresql
     x = await env.sql("select $a * $b", ONE, b=5)
     print(x)  # 10
-
+    x = await env.sql("select current_setting('my_app.x')", ONE) # parameter name must begin with the prefix "my_app."
+    print(x)
     await env.sql("do $$\nbegin\n raise notice 'hello world!'; end;$$", RAW)
     print(notifyes)
-
+    #return
     t = await env.table("t1")
     x = await t.count()
     print(cnt == x, x) # True, record_count

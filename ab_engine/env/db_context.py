@@ -29,7 +29,7 @@ class DB_ENV(UserDict):
         """
         Окружение для работы с БД
         :param connection: строка соеддинения или экземпляр DB_ENV, на основе которого нужно создать данный
-        :param db_params: список переменных, которые должны передаваться в в окружение соединения с БД
+        :param db_params: список имен переменных, которые должны передаваться в соединение с БД
         :param notify: список или функция, в которую будут переданы извещения о событиях
         :param kwargs: значения переменных
         """
@@ -102,7 +102,7 @@ class DB_ENV(UserDict):
         if self._context is not None:
             raise_error("ENV_CONTEXT_EXISTS")
         if self._db_params:
-            s = self._connection_str + f"{{{dumps({x:self[x] for x in self._db_params if self.has_item(x)})}}}"
+            s = self._connection_str + dumps({x:self[x] for x in self._db_params if self.has_item(x)})
         else:
             s = self._connection_str
         self._context = DB(s, notify=self._notify)
