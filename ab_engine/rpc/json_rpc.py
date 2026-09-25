@@ -1,11 +1,10 @@
-from codecs import namereplace_errors
-
 from .rpc import Fnc, call_rpc
 from ..error import raise_error
 from ..env import DB_ENV, Config, LogLevel
 from json5 import loads as json_loads, dumps as json_dumps
 from asyncio import gather
 from ..error import error_msg
+from typing import Optional
 
 
 class JSON_RPC:
@@ -152,7 +151,7 @@ class JSON_RPC:
         Config().log(msg, level, *args, **kwargs)
 
 
-async def call_json(message:str|dict|list, connection="", ext_params=None):
+async def call_json(message:str|dict|list, connection:str|DB_ENV="", ext_params:Optional[dict]=None):
     rpc = JSON_RPC(connection)
     ret = await rpc(message, ext_params=ext_params)
     return ret

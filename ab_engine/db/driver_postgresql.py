@@ -53,6 +53,9 @@ class Driver(BaseDriver):
     async def begin(self):
         params = await self._before_open()
         self._conn = await AsyncConnection.connect(self.connection_string)
+        await self._after_open(params)
+
+    async def _after_open(self, params):
         for x in params:
             if x == "TIMEZONE":
                 await self._conn.execute(f"set session timezone '{params[x]}'")
