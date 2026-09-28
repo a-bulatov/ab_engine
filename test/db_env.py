@@ -10,7 +10,6 @@ async def with_transaction():
         await env.sql("insert into t1(v) values ('from env - '||$1)", x+2)
 
 async def main():
-    Config("test.toml")
     await with_transaction()
 
     cnt = await sql("select count(*) from t1", ONE)
@@ -79,5 +78,16 @@ async def main():
     await t.seek(id=x)  # seek to row with id = x
     print(t.row)
 
+
+async def env_test():
+    env = DB_ENV(x=2)
+    print(env["x"])
+    env["x"] = 1
+    print(env["x"])
+    env = DB_ENV()
+    env["x"] = 3
+    print(env["x"])
+
 if __name__ == '__main__':
-    run_async(main())
+    Config("test.toml")
+    run_async(env_test())

@@ -1,11 +1,12 @@
 from enum import Enum
 from json import dumps
-from datetime import datetime, time
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import Optional
 from urllib.parse import unquote
 from inspect import iscoroutinefunction
+from uuid import UUID
+import datetime, uuid
 
 _is_option = None
 
@@ -31,6 +32,17 @@ def reencode(s):
         return f"'{s}'"
     return s
 
+
+def in_arr_str(s):
+    if not isinstance(s, str):
+        return str(s)
+    s = s.replace('"','\\"')
+    as_is = True
+    for x in s:
+        if x in '{} ,"\\;':
+            as_is = False
+            break
+    return s if as_is else f'"{s}"'
 
 class Driver(ABC):
 
@@ -142,6 +154,8 @@ class Driver(ABC):
     def var_to_sql(var, str_after=" "):
         if var is None:
             return " NULL"
+        elif isinstance(var, (int, float, bool)):
+            return f" {var}"
         elif isinstance(var, str):
             var = var.replace("'", "''")
             return reencode(var)
@@ -150,15 +164,15 @@ class Driver(ABC):
                 var = dumps(var, ensure_ascii=False).replace("'", "''")
                 return reencode(var)
             else:
-                var = ','.join(['NULL' if x is None else str(x) for x in var])
-                return reencode(f"{{{var}}}")
+                var = ','.join(['NULL' if x is None else in_arr_str(x) for x in var])
+                return reencode(f"{{{var.replace("'", "''")}}}")
         elif isinstance(var, set):
-            var = ','.join('NULL' if x is None else str(x) for x in var)
+            var = ','.join('NULL' if x is None else in_arr_str(x) for x in var)
             return reencode(f"{{{var}}}")
         elif isinstance(var, dict):
             var = dumps(var, ensure_ascii=False).replace("'", "''")
             return reencode(var)
-        elif isinstance(var, (datetime, time)):
+        elif hasattr(datetime, var.__class__.__name__) or isinstance(var, UUID):
             return f" '{var}'"
         else:
             return f" {var}"

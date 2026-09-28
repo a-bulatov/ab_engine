@@ -41,19 +41,17 @@ class ReadOnlyPropDict:
 
     def __init__(self,  **kwargs):
         self._data = kwargs
-        for x in kwargs:
-            self._set_f(x)
-
-    def _set_f(self, x):
-        setattr(self.__class__, x, property(lambda p: self._data[x]))
 
     def __getitem__(self, item):
+        return self._data[item]
+
+    def __getattr__(self, item):
         return self._data[item]
 
 
 class PropDict(ReadOnlyPropDict):
 
-    def _set_f(self, x):
-        def set_f(p, v):
-            self._data[x] = v
-        setattr(self.__class__, x, property(lambda p: self._data[x], set_f))
+    def __setattr__(self, name, value):
+        if name not in self._data:
+            raise KeyError(name)
+        self._data[name] = value

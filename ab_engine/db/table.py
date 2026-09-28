@@ -4,22 +4,6 @@ from ..error import raise_error
 from .processor import sql
 import asyncio
 
-
-class ROW(ReadOnlyPropDict):
-
-    def __str__(self):
-        s = ""
-        for x in self._data:
-            v = str(self._data[x].value).replace("\t","    ")
-            s += f" {x}: {v}" + "\t"
-        return s[:-1]
-
-    def __getitem__(self, item):
-        if item not in self._data:
-            raise_error("FIELD_NOT_FOUND", name=item)
-        return self._data[item]
-
-
 class Field:
 
     class _Condition:
@@ -42,7 +26,8 @@ class Field:
             if isinstance(right, Field):
                 if right._table == left._table:
                     right = Field._Condition.Name(right.name)
-                right = right.value
+                else:
+                    right = right.value
             if not isinstance(left, Field):
                 raise_error("NOT_LFIELD")
             elif op in ("%", "//"):
@@ -222,6 +207,20 @@ class Table:
     class _FILTER(ALL):
         ...
 
+    class ROW(ReadOnlyPropDict):
+
+        def __str__(self):
+            s = ""
+            for x in self._data:
+                v = str(self._data[x].value).replace("\t","    ")
+                s += f" {x}: {v}" + "\t"
+            return s[:-1]
+
+        def __getitem__(self, item):
+            if item not in self._data:
+                raise_error("FIELD_NOT_FOUND", name=item)
+            return self._data[item]
+
     def __init__(self, table_struct:dict, db:DB, page_size=100, auto_close_conn=True, async_delay=0.001):
         self._table = table_struct["table"]
         self._db = db
@@ -233,7 +232,7 @@ class Table:
         self._offset = 0
         self._page = None
         self._filter = ""
-        self._row = ROW(**{x["name"]:Field(x, self) for x in table_struct.get("fields", [])})
+        self._row = Table.ROW(**{x["name"]:Field(x, self) for x in table_struct.get("fields", [])})
         self._key = 1
         constraint = table_struct.get("constraints")
         for x in  constraint:
@@ -329,7 +328,6 @@ class Table:
         """строка, на которой стоит курсор (счет с 0)"""
         return self._offset + (self._ptr or 0)
 
-
     async def seek(self, *args, **kwargs):
         if kwargs or len(args) != 1 or (len(args) > 1 and not isinstance(args[0], int)):
             if self._filter:
@@ -370,6 +368,10 @@ class Table:
         self._ptr = need_ptr
         self._offset = need_ofs
         return True
+
+    async def refresh(self):
+        pos = self.position
+        await self.seek(pos)
 
     async def next(self):
         """
@@ -482,7 +484,7 @@ class Table:
             if x not in nms:
                 raise_error("NA_FIELD", field=x, table=self._table)
             if qry:
-                qry += "and"
+                qry += " and "
             qry += f"{x} = {Field._Condition._lquot(self.row._data[x]._p_type, kwargs[x])}"
         return qry
 
@@ -573,6 +575,8 @@ class Table:
         """
         if args or kwargs:
             qry = self._gen_filter(*args, **kwargs)
+        elif self.key and isinstance(self.key, str):
+            qry = {self.key:self.row[self.key].value}
         elif self.key:
             qry = {x:self.row[x].value for x in self.key}
         else:
@@ -598,6 +602,7 @@ class Table:
         while n < len(args):
             if args[n]==ALL:
                 fltr = None
+                args = list(args)
                 del args[n]
             else:
                 n += 1

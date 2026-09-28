@@ -69,7 +69,11 @@ def typed_val(key, values: dict):
     return v, key
 
 
-def from_env(key:str, key_map:dict):
+def from_env(key:str, key_map:dict | str):
+    if isinstance(key_map, str):
+        if key in ENV:
+            Config._settings[key_map] = ENV[key]
+        return
     ret = {key_map[x]: ENV[x] for x in key_map if x in ENV}
     if key and "." in key:
         eval_key = key.split(".")

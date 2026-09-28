@@ -39,7 +39,7 @@ class DB_ENV(UserDict):
         if isinstance(connection, DB_ENV):
             env = connection
             self._db_params = env._db_params.copy()
-            params = env._params.copy()
+            params = env.data.copy()
             connection = env.connection_string
         elif isinstance(connection, DB):
             connection = DB.connection.connection_string
