@@ -3,7 +3,10 @@ from datetime import datetime
 from json import dumps, loads
 from json5 import loads as json5_load
 from yaml import safe_load as yaml_load
-from tomllib import loads as toml_load
+try:
+    from tomllib import loads as toml_load
+except:
+    toml_load = None
 from pathlib import Path
 from os import environ as ENV
 import logging as LOG
@@ -123,6 +126,8 @@ class Config:
                 case ".yaml" | ".yml":
                     return yaml_load(data)
                 case ".toml":
+                    if toml_load is None:
+                        raise error("BAD_FORMAT", format_name=fn)
                     return toml_load(data)
                 case _:
                     raise error("BAD_FORMAT", format_name=fn)
