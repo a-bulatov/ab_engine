@@ -74,6 +74,7 @@ class JSON_RPC:
             if "id" in message:
                 res["id"] = message["id"]
         except Exception as e:
+            Config().log_level
             res = self.rpc_error(-32000, data=e, header=message)
         if res.get("error") is not None:
             self.log(f"{f}: ERROR:\n{res['error']}!!")

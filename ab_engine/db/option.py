@@ -113,6 +113,7 @@ class DB(Option):
                     self._params[x.replace("$",".")] = v
         else:
             self._params = {}
+        self._hash = hash(connection_string)
         if "://" not in connection_string:
             try:
                 _check_cfg()
@@ -155,14 +156,10 @@ class DB(Option):
         else:
             driver_path = ""
 
-        self._hash = hash(driver_path + connection_string)
         if "LIMIT" in self._params:
             m = self._params["LIMIT"]
             del self._params["LIMIT"]
-        else:
-            m = 0
-        self._conn_limit = None
-        self.connection_limit = m
+            self.connection_limit = m
         self._connection = driver(connection_string, self._on_open_close, notify)
 
     @property
@@ -192,21 +189,18 @@ class DB(Option):
         else:
             lmt = BoundedSemaphore(value)
             _LIMITS_[self._hash] = lmt
-        self._conn_limit = lmt
 
 
     async def _on_open_close(self, close=False)->dict:
-        if self._conn_limit:
+        if lmt:=_LIMITS_.get(self._hash):
             if close:
-                await self._conn_limit.release()
-                if self._hash not in _LIMITS_:
-                    self._conn_limit = None
-            elif self._hash not in _LIMITS_:
-                self._conn_limit = None
+                lmt.release()
             else:
-                if self._conn_limit.locked():
+                if lmt.locked():
                     await self.garbage_collect()
-                await self._conn_limit.acquire()
+                    while lmt.locked():
+                        await sleep(0.0001)
+                await lmt.acquire()
         return self._params
 
     @property

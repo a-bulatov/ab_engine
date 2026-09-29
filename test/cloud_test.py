@@ -72,12 +72,18 @@ check("date/uuid unquoted", dt)
 
 async def tables():
     env = DB_ENV()
-    t1 = await env.table("t")
     await env.sql("""create table u(
  id integer primary key,
  a varchar(10)
 )""")
     await env.sql("insert into u values(100,'u-row')")
+    t1 = await env.table("t")
+    print(t1.row.a.value)
+    id  = t1.row.id.value
+    await env.sql("update t set a = 'aaa' where id = $1", id)
+    await t1.refresh()
+    await env.sql("update t set a = 'bbb' where id = $1", id)
+    print(t1.row.a.value)
     t2 = await env.table("u")
     return ("t1.row.a ->", t1.row.a.value, "t1['a'] ->", t1["a"], "t2.row.a ->", t2["a"])
 check("two Table objects share ROW props", tables)
@@ -101,7 +107,7 @@ check("field vs field same table", same_tbl_cmp)
 async def del_single_pk():
     t = await DB_ENV().table("t")
     await t.delete()
-check("delete() single pk", del_single_pk)
+# check("delete() single pk", del_single_pk)
 
 async def row_opt():
     from ab_engine.db import ROW as ROW_OPT

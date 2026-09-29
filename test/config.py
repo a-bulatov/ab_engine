@@ -2,7 +2,7 @@ from _imports import *
 import sys
 
 async def test():
-    Config("test.toml", env_map={"auth":{"USER":"user"}})
+    Config("test.toml", env_map={"auth":{"USER":"user"}}, can_include=["API"])
     Config().log(f"User: {Config().auth['user']}")
     x = await sql("select version()", ONE)  # для БД по умолчанию (defaults) можно не передавать DB
     Config().log(f"Postgres version: {x}")
@@ -19,5 +19,5 @@ def test_log():
 
 if __name__ == '__main__':
     print(sys.executable)
-    test_log()
-    #run_async(test())
+    #test_log()
+    run_async(test())

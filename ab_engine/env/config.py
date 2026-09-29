@@ -3,7 +3,7 @@ from datetime import datetime
 from json import dumps, loads
 from json5 import loads as json5_load
 from yaml import safe_load as yaml_load
-from toml import loads as toml_load
+from tomllib import loads as toml_load
 from pathlib import Path
 from os import environ as ENV
 import logging as LOG
@@ -104,7 +104,7 @@ class Config:
     def initialized(cls):
         return cls._settings is not None
 
-    def __init__(self, path: Optional[str | list[str] | dict] = None, env_map: Optional[dict] = None, can_include: Optional[list]=None) -> None:
+    def __init__(self, path: Optional[str | list[str] | dict] = None, env_map: Optional[dict] = None, can_include: Optional[set]=None) -> None:
         if Config.initialized:
             return
 
