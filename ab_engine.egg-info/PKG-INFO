@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ab_engine
-Version: 0.2.3
+Version: 0.2.4
 Summary: Library of standard modules
 Author-email: Andrew Bulatov <BulatovAndrew@gmail.com>
 License-Expression: MIT
@@ -10,7 +10,6 @@ Description-Content-Type: text/markdown
 Requires-Dist: json5>=0.12.0
 Requires-Dist: psycopg>=3.2.9
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: toml>=0.10.2
 
 Библиотека стандартных модулей
 ==========================================================
