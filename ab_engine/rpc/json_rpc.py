@@ -11,12 +11,11 @@ class JSON_RPC:
 
     @staticmethod
     def rpc_error(code, data=None, header=None):
-
+        if not isinstance(code, int) or code > -32000 or code < -32099:
+            code = -32000
         err = error_msg(code)
         if err.message is None:
-            err.message = "Server error (UNKNOWN!!)"
-            if not isinstance(code, int) or code > -32000 or code < -32099:
-                code = -32000
+            err.message = "Server error"
             err.code = code
         code = {
             "code": err.code,
@@ -74,8 +73,10 @@ class JSON_RPC:
             if "id" in message:
                 res["id"] = message["id"]
         except Exception as e:
-            Config().log_level
-            res = self.rpc_error(-32000, data=e, header=message)
+            if Config().log_level.value > LogLevel.DEBUG.value:
+                res = self.rpc_error(-32000, header=message)
+            else:
+                res = self.rpc_error(-32000, data=e, header=message)
         if res.get("error") is not None:
             self.log(f"{f}: ERROR:\n{res['error']}!!")
             if env.in_transaction:

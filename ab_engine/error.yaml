@@ -39,6 +39,8 @@
   class: RuntimeError
   msg: ключ не может содержать знаков операций, открывающих круглых скобок и пробелов {key}
 ### Ошибки JsonRPC
+- code: -32000
+  msg: Ошибка сервера # Server error -32000 to -32099 Reserved for implementation-defined server-errors.
 - code: -32700
   msg: Ошибка разбора сообщения # "Parse error"
 - code: -32600

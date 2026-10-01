@@ -165,7 +165,8 @@ class Driver(ABC):
                 return reencode(var)
             else:
                 var = ','.join(['NULL' if x is None else in_arr_str(x) for x in var])
-                return reencode(f"{{{var.replace("'", "''")}}}")
+                var = var.replace("'", "''")
+                return reencode(f"{{{var}}}")
         elif isinstance(var, set):
             var = ','.join('NULL' if x is None else in_arr_str(x) for x in var)
             return reencode(f"{{{var}}}")
