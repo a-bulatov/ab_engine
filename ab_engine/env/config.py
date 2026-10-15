@@ -323,7 +323,7 @@ class Config:
         elif isinstance(level, LogLevel):
             ...
         else:
-            ValueError("Не понятен уровень лога")
+            level = LogLevel.OFF
         if level == LogLevel.SQL:
             level = LogLevel.DEBUG
         return level

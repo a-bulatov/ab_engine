@@ -8,11 +8,11 @@ from collections import namedtuple
 _ERRORS = {}
 
 def load_errors(file_name):
-    if pathsep in file_name:
-        f = Path(file_name)
-    else:
-        f = Path(__file__).parent / file_name
-    with f.open("r") as stream:
+    if file_name == ".":
+        file_name = Path(__file__).parent / "error.yaml"
+    elif not _ERRORS:
+        load_errors(".")
+    with open(str(file_name), "r") as stream:
         data = stream.readlines()
     data = ''.join(data)
     data = safe_load(data)
@@ -51,7 +51,7 @@ class BadError(Error):
 def error_msg(code, *args, **kwargs)->ErrorData:
     global _ERRORS
     if not _ERRORS:
-        load_errors("error.yaml")
+        load_errors(".")
     if isinstance(code, int):
         h_code = code
     else:
