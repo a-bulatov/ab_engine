@@ -1,59 +1,58 @@
 from .rpc import Fnc, call_rpc
-from ..error import raise_error
 from ..env import DB_ENV, Config, LogLevel
 from json5 import loads as json_loads, dumps as json_dumps
 from asyncio import gather
-from ..error import error_msg
+from ..error import error_msg, error
 from typing import Optional
+
+
+def rpc_error(code, data=None, header=None):
+    if not isinstance(code, int) or code > -32000 or code < -32099:
+        code = -32000
+    err = error_msg(code)
+    if err.message is None:
+        err.message = "Server error"
+        err.code = code
+    code = {
+        "code": err.code,
+        "message": err.message,
+    }
+    if data:
+        code["message"] = data if isinstance(data, (dict, list)) else str(data)
+    code = {"error": code}
+    if header:
+        if "id" in header:
+            code["id"] = header["id"]
+        code["jsonrpc"] = header.get("jsonrpc", "2.0")
+    return code
 
 
 class JSON_RPC:
 
-    @staticmethod
-    def rpc_error(code, data=None, header=None):
-        if not isinstance(code, int) or code > -32000 or code < -32099:
-            code = -32000
-        err = error_msg(code)
-        if err.message is None:
-            err.message = "Server error"
-            err.code = code
-        code = {
-            "code": err.code,
-            "message": err.message,
-        }
-        if data:
-            code["message"] = data if isinstance(data, (dict, list)) else str(data)
-        code = {"error": code}
-        if header:
-            if "id" in header:
-                code["id"] = header["id"]
-            code["jsonrpc"] = header.get("jsonrpc", "2.0")
-        return code
-
     def __init__(self, connection = None):
-        self._con = connection
+        self._con = "" if connection is None else connection
 
     async def _rpc(self, env, method, params):
         # можно перезагрузить в наследниках, чтобы например, вызывать команды мз другого списка
         f = Fnc.search(method)
         if f is None:
-            return self.rpc_error(-32601)
+            return rpc_error(-32601)
         if isinstance(params, list):
             params = {"LIST_OF_PARAMS": params}
         elif not isinstance(params, dict):
-            raise_error("BAD_RPC_FORMAT", name=method)
+            raise error("BAD_RPC_FORMAT", name=method)
         return await call_rpc(f, env, **params)
 
     async def _call_one(self, env, message):
         if "method" not in message:
-            return self.rpc_error(-32600, header=message)
+            return rpc_error(-32600, header=message)
         if "params" in message:
             params = message["params"]
             del message["params"]
         else:
             params = {}
         f = message['method']
-        self.log(f"CALL:{f}")
+        Config().log(f"CALL:{f}")
         try:
             res = await self._rpc(env, f, params)
             if isinstance(res, dict) and len(res) == 1 and "error" in res:
@@ -74,15 +73,15 @@ class JSON_RPC:
                 res["id"] = message["id"]
         except Exception as e:
             if Config().log_level.value > LogLevel.DEBUG.value:
-                res = self.rpc_error(-32000, header=message)
+                res = rpc_error(-32000, header=message)
             else:
-                res = self.rpc_error(-32000, data=e, header=message)
+                res = rpc_error(-32000, data=e, header=message)
         if res.get("error") is not None:
-            self.log(f"{f}: ERROR:\n{res['error']}!!")
+            Config().log(f"{f}: ERROR:\n{res['error']}!!")
             if env.in_transaction:
                 await env.rollback()
         else:
-            self.log(f"{f}: OK!")
+            Config().log(f"{f}: OK!")
         return res
 
     async def _call_part(self, message, ext_params=None):
@@ -122,7 +121,7 @@ class JSON_RPC:
             try:
                 message = json_loads(message)
             except Exception as e:
-                return self.rpc_error(-32700, e)
+                return rpc_error(-32700, e)
             to_str = True
         else:
             to_str = False
@@ -147,10 +146,6 @@ class JSON_RPC:
             if env.in_transaction:
                 await env.commit()
         return json_dumps(res, indent=4) if to_str else res
-
-    @staticmethod
-    def log(msg, level=LogLevel.DEBUG, *args, **kwargs):
-        Config().log(msg, level, *args, **kwargs)
 
 
 async def call_json(message:str|dict|list, connection:str|DB_ENV="", ext_params:Optional[dict]=None):

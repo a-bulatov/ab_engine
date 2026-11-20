@@ -129,3 +129,11 @@
   msg: Класс {name} не найден
 - code: NOT_FOUND_)
   msg: Нет закрывающей скобки {context}
+- code: RPC_FN_\
+  msg: Имя функции RPC не может содержать \
+- code: RPC_BAD_ITF
+  msg: Не найден RPC интерфейс {name}
+- code: BAD_REFERENCE
+  msg: Ошибка в ссылке {reference}
+- code: NEED_LIB
+  msg: "Требуется установка библиотеки: {lib}"

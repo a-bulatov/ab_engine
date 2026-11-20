@@ -9,6 +9,9 @@ B = 15
 database = "db"
 plugin_path = "./"
 
+[http]
+proxy = "http://0.0.0.0:5000/api"
+
 [database]
-db = "postgresql://localhost:5432/postgres?user=postgres&password=postgres"
+db = "postgresql://localhost:5432/postgres?user=postgres&password=postgres&use_indent"
 valkey = "valkey://10.0.0.57:6379/0"

@@ -1,6 +1,7 @@
 from typing import Optional, Callable
 from os import sep as file_sep
 from .fnc import *
+from .proxy import HTTP
 from ..error import error
 from ..env import Config, DB_ENV
 from ..db.option import Option
@@ -220,7 +221,28 @@ def register_list(defs:list | dict, self=None)->None:
     else:
         raise error("BAD_RPC_FORMAT")
     for x in defs:
+        if "\\" in x:
+            raise error("RPC_FN_\\")
         fnc = defs[x]
+        if "function" not in fnc:
+            fnc["function"] = x
+        if fnc == "self":
+            fn = getattr(self, x)
+            PythonFnc(x, fn)
+            continue
+        elif "interface" in fnc:
+            fn = fnc["interface"]
+            if not isinstance(fn, list):
+                fn = [str(fn).strip()]
+            if "public" not in fn:
+                x = fn.pop(0) +"\\"+ x
+            else:
+                del fn[fn.index("public")]
+            itf = fn if len(fn) > 0 else None
+        else:
+            itf = None
+
+
         if "sql" in fnc:
             if "ext" in fnc:
                 fn = []
@@ -243,16 +265,22 @@ def register_list(defs:list | dict, self=None)->None:
                 fn = tuple([fnc["sql"]] + fn)
             else:
                 fn = fnc["sql"]
-            SqlFnc(x, fn, help=fnc.get('help'))
-        elif fnc == "self":
-            fn = getattr(self, x)
-            PythonFnc(x, fn)
+            fn = SqlFnc(x, fn, help=fnc.get('help'))
         else:
             match fnc.get("type", "db"):
                 case "db":
-                    SqlFnc(x, f"\\JSON {fnc['function']}(JSONB)", help=fnc.get('help'))
+                    fn = SqlFnc(x, f"\\JSON {fnc['function']}(JSONB)", help=fnc.get('help'))
                 case "self":
                     fn = getattr(self, fnc['function'])
-                    PythonFnc(x, fn, help = fnc.get('help') )
+                    fn = PythonFnc(x, fn, help = fnc.get('help') )
+                case "web":
+                    fn = HTTP(x, fnc['function'], fnc.get('help'), fnc["url"])
                 case _:
                     register(x, fnc["function"], help = fnc.get('help'))
+                    fn = Fnc.registry[x]
+
+        if itf is not None:
+            if "\\" in x:
+                x = x.split("\\",1)[1]
+            for n in itf:
+                Fnc.registry[n +"\\"+ x] = fn

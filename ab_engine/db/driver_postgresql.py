@@ -27,11 +27,8 @@ class Driver(BaseDriver):
     LIKE = "ILIKE"
 
     def __init__(self, connection_string, on_open_close=None, notify=None):
-        """
-        localhost:5432/postgres?user=postgres&password=postgres
-        """
-        drv_params = {}
-        super().__init__(connection_string, on_open_close, out_params=drv_params, notify=notify)
+        drv_params = self.parse_connection_str(connection_string)
+        drv_params = drv_params["params"]
         if "user" in drv_params:
             drv_params["params"]["user"] = drv_params["user"]
         if "password" in drv_params:
@@ -44,7 +41,7 @@ class Driver(BaseDriver):
             con += f"port={drv_params['port']} "
         for x in drv_params["params"]:
             con += f"{x}={drv_params['params'][x]} "
-        self._conn_str = con.strip()
+        super().__init__(connection_string, on_open_close, notify=notify)
 
     @property
     def in_transaction(self):

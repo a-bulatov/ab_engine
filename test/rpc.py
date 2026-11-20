@@ -77,9 +77,14 @@ async def main4():
     register_rpc_list({
         "db_ver":{
            "sql": "select version()",
-           "ext": "ONE"
+           "ext": "ONE",
+           "interface": "private",
+            "help": "Версия PostgreSQL"
         },
-        "hello":"self",
+        "hello": {
+            "type":"self",
+            "interface": ["private","public"]
+        },
         "hello2":{
             "sql":"""
             do $$
@@ -109,7 +114,15 @@ async def main4():
 
     x = await call_rpc("hello2", name="Andrew")
     print(x)
-    x = await call_rpc("db_ver")
+    try:
+        x = await call_rpc("db_ver")
+        print(x)
+    except Exception as e:
+        print("не нашли db_ver")
+
+    itf = RPCInterface(name="private")
+    print(itf.db_ver.help)
+    x = await itf.db_ver()
     print(x)
 
 async def main5():
@@ -121,5 +134,5 @@ async def main5():
 
 if __name__ == '__main__':
     Config("test.toml")
-    run_async(main5())
+    run_async(main4())
 

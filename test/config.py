@@ -12,12 +12,14 @@ async def test():
     print("----------------------------------")
 
 def test_log():
-    c = Config({'logging': {'level': 'off'}})
-    print(c.log_level)   # LogLevel.OFF
-    print(c.logger)
-    c.log("Не выведется")# <RootLogger root (Level -1)>
+    #c = Config({'logging': {'level': 'off'}})
+    c = Config("test.toml")
+    #print(c.log_level)   # LogLevel.OFF
+    #print(c.logger)
+    c.log("Не выведется") # <RootLogger root (Level -1)>
+    ...
 
 if __name__ == '__main__':
     print(sys.executable)
-    #test_log()
+    test_log()
     run_async(test())

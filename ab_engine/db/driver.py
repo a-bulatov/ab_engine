@@ -48,7 +48,7 @@ class Driver(ABC):
 
     LIKE = "LIKE" # что использовать как like, например для postgresql это ILIKE
 
-    def __init__(self, connection_string, on_open_close=None, notify=None, out_params:Optional[dict]=None):
+    def __init__(self, connection_string, on_open_close=None, notify=None):
         self._conn = None
         if isinstance(connection_string, Driver):
             self._conn_str = connection_string.connection_string
@@ -57,12 +57,14 @@ class Driver(ABC):
         self._notify = notify
         self._on_open_close = on_open_close
         connection_string = connection_string.strip()
+        connection_string, _ = connection_string.split("{",1) if "{" in connection_string and connection_string.endswith("}") else connection_string, "}"
+        self._conn_str = connection_string
+
+    @staticmethod
+    def parse_connection_str(connection_string:str):
         connection_string, options = connection_string.split("{",1) if "{" in connection_string and connection_string.endswith("}") else connection_string, "}"
         options = options[:-1]
-        self._conn_str = connection_string
-        if out_params is None:
-            return
-        out_params["options"]=options
+        out_params = {"options": options}
         connection_string, options = f"{connection_string}?".split("?",1)
         options = options[:-1]
         if options!="":
@@ -93,6 +95,10 @@ class Driver(ABC):
             out_params["host"] = unquote(connection_string)
         else:
             out_params["database"] = unquote(connection_string)
+        return {
+            "options": options,
+            "params": out_params
+        }
 
     async def _notify_callback(self, notify):
         if isinstance(self._notify, list):
