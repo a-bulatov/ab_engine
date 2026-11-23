@@ -6,8 +6,9 @@ from ..error import error
 
 class Caller:
 
-    def __init__(self, f, rpc):
+    def __init__(self, f, rpc, name):
         self._f = f
+        self._n = name
         self._rpc = rpc
 
     async def __call__(self, **kwargs):
@@ -16,9 +17,12 @@ class Caller:
         return ret
 
     @property
-    def help(self):
-        return self._f.help
+    def __doc__(self):
+        x = self._f.help
+        return x
 
+    def __repr__(self) -> str:
+        return self._rpc._name + self._n
 
 class RPCInterface(JSON_RPC):
 
@@ -34,7 +38,7 @@ class RPCInterface(JSON_RPC):
                 f = Fnc.registry[x]
             else:
                 continue
-            setattr(self, x, Caller(f, self))
+            setattr(self, x, Caller(f, self, x))
         if f is None:
             raise error("RPC_BAD_ITF", name = self._name)
 

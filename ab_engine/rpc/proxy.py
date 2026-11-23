@@ -6,14 +6,14 @@ from ..error import error
 # функция принимает на вход имя интерфейса, url и сообщение JsonRPC
 class RpcCallback(Protocol):
 
-    async def __call__(self, interface_name:Optional[str], endpoint:str, message:dict) -> dict:
+    async def __call__(self, endpoint:str, message:dict, env:Optional[DB_ENV]) -> dict:
         ...
 
 # функция принимает на вход имя интерфейса и список заголовков.
 # может поменять заголовки. не вызывается, если задан CallbackPOST
 class HeadersCallback(Protocol):
 
-    def __call__(self, interface_name:Optional[str], endpoint:str, headers:dict):
+    def __call__(self, endpoint:str, headers:dict, env:Optional[DB_ENV]):
         ...
 
 class HTTP(Fnc):
@@ -21,7 +21,6 @@ class HTTP(Fnc):
     getHeaders : Optional[HeadersCallback] = None
     doRpc : Optional[RpcCallback] = None
     AsyncClient = None
-
 
     def __init__(self, name:str, method: str, help: str, endpoint: str):
         super().__init__(name, help)
@@ -39,30 +38,28 @@ class HTTP(Fnc):
                     break
                 if not isinstance(cfg, dict):
                     raise error("BAD_REFERENCE", reference=self._url)
-
-        if isinstance(env, DB_ENV):
-            env = env["RPC_INTERFACE"] if env.has_item("RPC_INTERFACE") else None
-        else:
-            env = str(env)
         ret = await self.request(env, kwargs)
         if "error" in ret:
             return {"error": ret["error"]}
-        return ret["result"]
+        elif "result" in ret:
+            return ret["result"]
+        else:
+            return {"error": ret}
 
-    async def request(self, interface, params):
+    async def request(self, env, params):
         params = {
             "jsonrpc": "2.0",
             "method": self._rpc,
             "params": params
         }
         if HTTP.doRpc is not None:
-            ret = await HTTP.doRpc(interface, self._url, params)
+            ret = await HTTP.doRpc(self._url, params, env)
             return ret
         header = {
             "Content-Type": "application/json"
         }
         if HTTP.getHeaders is not None:
-            HTTP.getHeaders(interface, self._url, header)
+            HTTP.getHeaders(self._url, header, env)
         if HTTP.AsyncClient is None:
             try:
                 import httpx
@@ -75,9 +72,9 @@ class HTTP(Fnc):
                 headers = header,
                 json = params
             )
-        if ret.status_code == 200:
+        try:
             return ret.json()
-        else:
+        except Exception as e:
             return {"error": f"{ret.status_code} {ret.reason_phrase}"}
 
 

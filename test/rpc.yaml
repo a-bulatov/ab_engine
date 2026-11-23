@@ -1,0 +1,37 @@
+API:
+  hello: self
+
+  web_hello:
+    type: web
+    interface: private
+    function: hello
+    url: http://0.0.0.0:5000/api
+
+  hello2:
+    sql:
+      do $$
+      declare
+        nm varchar;
+      begin
+        nm = $name::varchar;
+        raise notice 'Hello % !!', nm;
+      end $$
+    ext: ["NOTICE","ONE"]
+    interface: ["private", ""]
+
+  set:
+    sql: set $key $value
+    ext: DB(valkey)
+    help: устанавливает значение ключа key равным value
+
+  get:
+    sql: get $key,
+    ext: DB(valkey)
+    help: возвращает значение ключа key
+
+# строки ниже не относятся к регистрации, но необходимы для соединения с БД в примере
+database:
+  db: postgresql://localhost:5432/postgres?user=postgres&password=postgres
+  valkey: valkey://10.0.0.57:6379/0
+defaults:
+  database: db

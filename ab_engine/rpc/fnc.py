@@ -122,5 +122,8 @@ class SqlFnc(Fnc):
         super().__init__(name, help)
 
     async def __call__(self, env, **kwargs):
-        ret = await env.sql(self.__query, *self.__args, **kwargs)
+        try:
+            ret = await env.sql(self.__query, *self.__args, **kwargs)
+        except Exception as e:
+            ret = {"error":str(e)}
         return ret

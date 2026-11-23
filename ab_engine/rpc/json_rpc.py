@@ -52,7 +52,7 @@ class JSON_RPC:
         else:
             params = {}
         f = message['method']
-        Config().log(f"CALL:{f}")
+        Config().log(f"CALL:{f}","debug")
         try:
             res = await self._rpc(env, f, params)
             if isinstance(res, dict) and len(res) == 1 and "error" in res:
@@ -77,11 +77,11 @@ class JSON_RPC:
             else:
                 res = rpc_error(-32000, data=e, header=message)
         if res.get("error") is not None:
-            Config().log(f"{f}: ERROR:\n{res['error']}!!")
+            Config().log(f"{f}: ERROR:\n{res['error']}!!","debug")
             if env.in_transaction:
                 await env.rollback()
         else:
-            Config().log(f"{f}: OK!")
+            Config().log(f"{f}: OK!","debug")
         return res
 
     async def _call_part(self, message, ext_params=None):

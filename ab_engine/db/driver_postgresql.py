@@ -41,7 +41,7 @@ class Driver(BaseDriver):
             con += f"port={drv_params['port']} "
         for x in drv_params["params"]:
             con += f"{x}={drv_params['params'][x]} "
-        super().__init__(connection_string, on_open_close, notify=notify)
+        super().__init__(con, on_open_close, notify=notify)
 
     @property
     def in_transaction(self):

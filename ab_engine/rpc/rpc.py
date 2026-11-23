@@ -224,7 +224,12 @@ def register_list(defs:list | dict, self=None)->None:
         if "\\" in x:
             raise error("RPC_FN_\\")
         fnc = defs[x]
-        if "function" not in fnc:
+        if fnc == "self":
+            fnc = {
+               "type": "self",
+               "function": x
+            }
+        elif "function" not in fnc:
             fnc["function"] = x
         if fnc == "self":
             fn = getattr(self, x)
@@ -234,10 +239,10 @@ def register_list(defs:list | dict, self=None)->None:
             fn = fnc["interface"]
             if not isinstance(fn, list):
                 fn = [str(fn).strip()]
-            if "public" not in fn:
+            if "" not in fn:
                 x = fn.pop(0) +"\\"+ x
             else:
-                del fn[fn.index("public")]
+                del fn[fn.index("")]
             itf = fn if len(fn) > 0 else None
         else:
             itf = None
