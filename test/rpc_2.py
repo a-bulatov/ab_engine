@@ -1,31 +1,34 @@
-import asyncio
 import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from ab_engine import Config, register_rpc_list, call_json, call_rpc
 from ab_engine.rpc import RPCInterface
-######
+## Дополнительные библиотеки, требуемые для теста. в реальном приложении могут быть использованы другие ###
 from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.responses import JSONResponse
 from contextlib import asynccontextmanager
-import asyncio
+import asyncio, os, signal
 
 
 def hello():
+    # функция для вызываемая для теста (self)
     return "Здравствуй мир!"
 
 
 async def tests():
+    # демонстрация/тест работы
     cfg = Config()
     # вызов метода hello
     ret = await call_rpc("hello")
     cfg.log(ret)
 
-    # ждем 2 секунды в надежде, что starlette будет принимать запросы
-    await asyncio.sleep(2)
+    # ждем секунду в надежде, что starlette будет принимать запросы
+    await asyncio.sleep(1)
     cfg.log("Сервер принимает запросы!","debug")
+
+    cfg.log("------------------------------------------------------------------")
     # вызов метода web_hello будет завершен с ошибкой т.к. он внутри интерфейса и это не интерфейс по умолчанию
     try:
         ret = await call_rpc("web_hello")
@@ -51,12 +54,21 @@ async def tests():
     ret = await call_rpc("hello2", name = "из публичного интерфейса")
     cfg.log(ret)
 
+    # пример работы с valkey через функции интерфейса
+    cfg.log("------------------------------------------------------------------")
+    itf = RPCInterface(name="valkey")
+    await itf.set(key="test_key", value=10)
+    ret = await itf.get(key="test_key")
+    cfg.log(f"test_key = {ret}")
+    await itf.set(key="test_key", value=20)
+    ret = await itf.get(key="test_key")
+    cfg.log(f"test_key = {ret}")
+
+    #остановка приложения
+    os.kill(os.getpid(), signal.SIGTERM)
 
 async def http_endpoint(request):
-    """
-    Выполняет запрос пришедший на HTTP API
-    запрещает выполнение приватных методов через HTTP
-    """
+    # в эту функцию, по HTTP, приходят запросы JsonRPC
     x = await request.json()
     if "\\" in x.get("method","\\"):
         x = {"error": f"Невозможно выполнить {x.get("method")}"}
@@ -66,24 +78,20 @@ async def http_endpoint(request):
 
 @asynccontextmanager
 async def lifespan(app: Starlette):
+    # Нужен для библиотеки starlette, чтобы синхронизировать запуск демонстрационной функции
     # 1. Сервер еще не принимает запросы, запускаем задачу с тестами
     task = asyncio.create_task(tests())
-
     # 2. Передаем управление приложению — сервер начинает принимать запросы
     yield
-
     # 3. Очистка при остановке сервера (если задача еще не завершилась)
     if not task.done():
         task.cancel()
 
-
-def init():
-    Config("rpc.yaml")
-    register_rpc_list(Config().API)
-    app = Starlette(debug=False, routes=[Route("/api", endpoint=http_endpoint, methods=["POST"])], lifespan=lifespan,)
-    return app
-
 if __name__ == '__main__':
     import uvicorn
-    app = init()
+    # Инициализация
+    Config("rpc.yaml")
+    register_rpc_list(Config().API) # регистрация API
+    app = Starlette(debug=False, routes=[Route("/api", endpoint=http_endpoint, methods=["POST"])], lifespan=lifespan)
+    # запуск
     uvicorn.run(app, port=5000, host="0.0.0.0")

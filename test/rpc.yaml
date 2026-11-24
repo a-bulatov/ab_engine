@@ -22,11 +22,13 @@ API:
   set:
     sql: set $key $value
     ext: DB(valkey)
+    interface: valkey
     help: устанавливает значение ключа key равным value
 
   get:
-    sql: get $key,
+    sql: get $key
     ext: DB(valkey)
+    interface: valkey
     help: возвращает значение ключа key
 
 # строки ниже не относятся к регистрации, но необходимы для соединения с БД в примере

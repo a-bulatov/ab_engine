@@ -1282,10 +1282,10 @@ API:
     sql:
       do $$
       declare
-        nm varchar;
+      nm varchar;
       begin
-        nm = $name::varchar;
-        raise notice 'Hello % !!', nm;
+      nm = $name::varchar;
+      raise notice 'Hello % !!', nm;
       end $$
     ext: ["NOTICE","ONE"]
     interface: ["private", ""]
@@ -1293,13 +1293,15 @@ API:
   set:
     sql: set $key $value
     ext: DB(valkey)
+    interface: valkey
     help: устанавливает значение ключа key равным value
 
   get:
-    sql: get $key,
+    sql: get $key
     ext: DB(valkey)
+    interface: valkey
     help: возвращает значение ключа key
-
+    
 # строки ниже не относятся к регистрации, но необходимы для соединения с БД в примере
 database:
   db: postgresql://localhost:5432/postgres?user=postgres&password=postgres
@@ -1307,51 +1309,103 @@ database:
 defaults:
   database: db
 ```
-
-пример использования списка (считаем, что список хранится в файле rpc.yaml)
+ц
+пример использования зарегистрированного списка интерфейсов и функций:
 ```python
-from ab_engine import register_rpc_list, call_rpc
+from ab_engine import Config, register_rpc_list, call_json, call_rpc
+from ab_engine.rpc import RPCInterface
+## Дополнительные библиотеки, требуемые для теста. в реальном приложении могут быть использованы другие ##
+from starlette.applications import Starlette
+from starlette.routing import Route
+from starlette.responses import JSONResponse
+from contextlib import asynccontextmanager
+import asyncio, os, signal
+
 
 def hello():
+    # функция, вызываемая для теста (self)
     return "Здравствуй мир!"
 
-register_rpc_list({
-    "hello":"self", 
-    "web_hello":{
-      "type": "web",
-      "function": "hello",
-      "url": "http://0.0.0.0/api"  
-    },
-    "hello2":{
-        "sql":"""
-        do $$
-        declare
-          nm varchar;
-        begin
-          nm = $name::varchar;
-          raise notice 'Hello % !!', nm;
-        end $$
-        """,
-        "ext": ["NOTICE","ONE"]
-    },
-    "set":{
-        "sql":"set $key $value",
-        "ext":"DB(valkey)",
-        "help": "устанавливает значение ключа key равным value"
-    },
-    "get":{
-        "sql":"get $key",
-        "ext":"DB(valkey)",
-        "help": "возвращает значение ключа key"
-    }
-})
 
-async def test():
-    await call_rpc("set", key="test", value=1234)
+async def tests():
+    # демонстрация/тест работы
+    cfg = Config()
+    # вызов метода hello
+    ret = await call_rpc("hello")
+    cfg.log(ret)
+
+    # ждем секунду в надежде, что starlette будет принимать запросы :)
+    await asyncio.sleep(1)
+    cfg.log("Сервер принимает запросы!","debug")
+
+    cfg.log("------------------------------------------------------------------")
+    # вызов метода web_hello будет завершен с ошибкой т.к. он внутри интерфейса и это не интерфейс по умолчанию
+    try:
+        ret = await call_rpc("web_hello")
+        cfg.log(ret)
+    except Exception as e:
+        cfg.log(e)
+    # создаем интерфейс для выполнения приватных методов
+    cfg.log("Попытка отправить запрос себе","debug")
+    itf =  RPCInterface(name="private")
+    cfg.log("Через web запрос к себе же (poroxy):")
+    ret = await itf.web_hello()
+    cfg.log(ret)
+
+    cfg.log("------------------------------------------------------------------")
+    ret = await itf.hello2(name = "из интерфейса")
+    cfg.log(ret)
+
+    # вызов функции интерфейса без создания интерфейса
+    ret = await call_rpc("private\\hello2", name = "из функции")
+    cfg.log(ret)
+
+    # вызов функции которая объявлена в 2-х интерфейсах
+    ret = await call_rpc("hello2", name = "из публичного интерфейса")
+    cfg.log(ret)
+
+    # пример работы с valkey через функции интерфейса
+    cfg.log("------------------------------------------------------------------")
+    itf = RPCInterface(name="valkey")
+    await itf.set(key="test_key", value=10)
+    ret = await itf.get(key="test_key")
+    cfg.log(f"test_key = {ret}")
+    await itf.set(key="test_key", value=20)
+    ret = await itf.get(key="test_key")
+    cfg.log(f"test_key = {ret}")
+
+    #остановка приложения
+    os.kill(os.getpid(), signal.SIGTERM)
+
+async def http_endpoint(request):
+    # в эту функцию, по HTTP, приходят запросы JsonRPC
+    x = await request.json()
+    if "\\" in x.get("method","\\"):
+        x = {"error": f"Невозможно выполнить {x.get("method")}"}
+    else:
+        x = await call_json(x)
+    return JSONResponse(x)
+
+@asynccontextmanager
+async def lifespan(app: Starlette):
+    # Нужен для библиотеки starlette, чтобы синхронизировать запуск демонстрационной функции
+    # 1. Сервер еще не принимает запросы, запускаем задачу с тестами
+    task = asyncio.create_task(tests())
+    # 2. Передаем управление приложению — сервер начинает принимать запросы
+    yield
+    # 3. Очистка при остановке сервера (если задача еще не завершилась)
+    if not task.done():
+        task.cancel()
+
+if __name__ == '__main__':
+    import uvicorn
+    # Инициализация
+    Config("rpc.yaml")
+    register_rpc_list(Config().API) # регистрация API
+    app = Starlette(debug=False, routes=[Route("/api", endpoint=http_endpoint, methods=["POST"])], lifespan=lifespan)
+    # запуск
+    uvicorn.run(app, port=5000, host="0.0.0.0")
 ```
-
-как видно из примера, список функций это python-словарь, где ключ это имя по которому метод будет вызываться из кода, а значение - параметры определяющие метод и способ его вызова.
-
 
 #### Регистрация с помощью декоратора: 
 
@@ -1509,6 +1563,70 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+```
+
+### Особенности использования RPC функций типа **web**
+
+Зависимость httpx, которую библиотека использует для JsonRPC через web не устанавливается вместе с библиотекой.
+Это сделано потому что у пользователей библиотеки может быть необходимость использовать собственную библиотеку http.реезы, 
+например с поддержкой какого-либо способа авторизации. 
+
+Для того чтобы задать собственную логику на транспортном уровне web-RPCproxy, библиотека предлагает три способа:
+
+1. Задать функцию для отправки JsonRPC по http, которая также должна вернуть ответ JsonRPC как Json
+2. Задать функцию для формирования заголовков отправляемого сообщения http
+3. Определить аналог класса AsyncClient из библиотеки http и передать его в переменную HTTP.AsyncClient (достаточно реализовать метод post)
+
+Система пытается применить кастомный обработчик ровно в том порядке, как возможности для кастомизации описаны выше.
+При этом, если уже нра первом шаге обнаруживается кастомная функция для отправки JsonRPC, то функция форматирования заголовков 
+и AsyncClient не вызываются.
+
+Ниже приведены спецификации для колбэков отправки JsonRPC и переопределения заголовков соответственно:
+```python
+# функция принимает на вход имя интерфейса, url и сообщение JsonRPC
+class RpcCallback(Protocol):
+
+    async def __call__(self, endpoint:str, message:dict, env:Optional[DB_ENV]) -> dict:
+        ...
+
+# функция принимает на вход имя интерфейса и список заголовков.
+# может поменять заголовки. не вызывается, если задан CallbackPOST
+class HeadersCallback(Protocol):
+
+    def __call__(self, endpoint:str, headers:dict, env:Optional[DB_ENV]):
+        ...
+```
+Обе функции получают на вход текущее окружение (env), таким образом они могут взять из окружения значения требуемых параметров, 
+например информацию о пользователе.
+
+Пример дополнения заголовков при вызове метода-прокси:
+```python
+from ab_engine.rpc import register, call_rpc, HTTP
+from ab_engine.env import DB_ENV
+from base64 import b64encode
+from asyncio import run
+
+def set_headers(endpoint:str, headers:dict, env:DB_ENV):
+    user = env["user"] # получаем пользователя из окружения
+    user = b64encode(user.encode("utf-8")).decode("utf-8")
+    headers["Authorization"] = f"Basic {user}" # например, передаем пользователя в Authorization Basic
+
+async def main():
+    # задаем callback для редактирования заголовков
+    HTTP.getHeaders = set_headers
+
+    # регистрируем RPC функцию-proxy
+    register("test", "http://0.0.0.0:5000/api:enum_get")  # заменить url и имя метода через : на подходящие
+
+    # создаем окружение, в котором передаем пользователя
+    env = DB_ENV(user = "Test User")
+
+    # выполнение функции в контексте окружения. имена параметров такие была мала их вероятность в сообщении
+    ret = await call_rpc("test", current_rpc_environment_for_call = env)
+    print(ret)
+
+if __name__ == '__main__':
+    run(main())
 ```
 
 ## Поддержка плагинов

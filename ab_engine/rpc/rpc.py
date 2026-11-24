@@ -62,6 +62,17 @@ def _load_by_default_path(name, defs, help):
             return
     raise error("REG_PLUG_NOT_FOUND", module=module, function=function if function else name)
 
+def _http_proxy(name, defs, help):
+    defs = defs.rsplit(":", 1)
+    fnc = name
+    if len(defs) == 1:
+        defs = defs[0]
+    elif defs[1].startswith("//"):
+        defs = ":".join(defs)
+    else:
+        defs, fnc = defs
+    HTTP(name, fnc, help, defs)
+
 
 def register(name:Optional[str|Callable]=None,defs=None, help=None, **kwargs) -> Callable:
     """
@@ -70,12 +81,18 @@ def register(name:Optional[str|Callable]=None,defs=None, help=None, **kwargs) ->
     :param name: имя для RPC вызова функции
     :param defs: для sql и плагинов - определение функции. для функции python - ссылка на функцию.
             при использовании в качестве декоратора, в defs может быть задано имя функции для вызова RPC
+
             определение sql это текст запроса, в том числе с расширениями, поддерживаемыми DB_ENV, либо tuple,
             где первый элемент это запрос, а остальные параметры, передаваемые в *args при вызове запроса.
+
+            определение proxy это url или ссылка на него, т.е. строка, которая начинается с http://, https:// или с @
+            в конце url, после знака двоеточие можно указать имя функции на удаленом сервере, если оно отличается от name
+
             определение плагина не включает пробельных символов и может быть задано в одном из следующих вариантов:
             * путь к модулю, содержащему функцию
             * имя модуля, содержащего функцию (будет найден по путям поиска, заданным в конфиг. defaults.plugin_path
             * путь или имя модуля:имя функции - позволяет вызывать функцию, имя которой отличается от имени при RPC
+
             если register вызывается как декоратор и имя декорируемой функции SQL, то эта функция немедленно вызывается,
             результатом такой функции может быть строка запроса, либо tuple, где первый элемент это запрос, а остальные
             параметры, передаваемые в *args при вызове запроса. Документация функции SQL становится
@@ -105,6 +122,8 @@ def register(name:Optional[str|Callable]=None,defs=None, help=None, **kwargs) ->
         PluginFnc(name, defs, help, **kwargs)
     elif name and (isinstance(defs, tuple) or (isinstance(defs, str) and any(x.isspace() for x in defs))):
         SqlFnc(name, defs, help)
+    elif name and isinstance(defs, str) and (defs.startswith("@") or defs.startswith("http://") or defs.startswith("https://")):
+        _http_proxy(name, defs, help)
     elif name and isinstance(defs, str) and not (defs.startswith("/") or defs.startswith("~")):
         _load_by_default_path(name, defs, help)
     elif name and isinstance(defs, str):

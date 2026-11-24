@@ -13,66 +13,84 @@ _FACTORY_ = {
 }
 
 
-def decode_array(buf):
-    l, buf = buf.split("\r\n",1)
-    l = int(l[1:])
-    ret = []
-    while buf!="":
-        if buf[0] == "$":
-            item_l, buf = buf.split("\r\n",1)
-            item_l = int(item_l[1:])
-            item = buf[:item_l]
-            if item_l > 0:
-                buf = buf[item_l+2:]
-                valid = len(item) == item_l
-                item = item.encode('utf-8').decode('unicode-escape')
-            else:
-                item = None
-                valid = True
-        elif buf[0] == ":":
-            item, buf = buf.split("\r\n",1)
-            item = int(item[1:])
-            valid = True
-        elif buf[0] == "*":
-            item, l2, valid = decode_array(buf)
-            buf = buf[l2:]
-        else:
-            valid = False
-        if not valid:
-            break
-        ret.append(item)
-        if len(ret)==l:
-            break
-    return ret, len(buf), len(ret)==l
+def _unescape(b: bytes) -> str:
+    # данные приходят в виде unicode_escape (так их кодирует prepare_cmd)
+    return b.decode('utf-8', errors='ignore').encode('utf-8').decode('unicode-escape')
 
 
-def decode_buf(buf):
-    if buf[0] == "$":
-        l, buf = buf.split("\r\n",1)
-        l = int(l[1:])
-        if l < 0:
-            buf = None
-            valid = True
-        else:
-            buf =buf[:l]
-            valid = len(buf)==l
-            buf = buf.encode('utf-8').decode('unicode-escape')
-    elif buf[0] == ":":
-        buf = buf.split("\r\n",1)[0][1:]
-        buf = int(buf)
-        valid = True
-    elif buf[0] == "*":
-        buf, l, valid = decode_array(buf)
-    elif buf[0] == "-":
-        buf = buf[1:-2]
-        raise Exception(buf)
-    elif buf[0] == "+":
-        buf = True
-        valid = True
-    else:
-        valid = buf.endswith("\r\n")
-        buf = buf[:-2]
-    return buf, valid
+def decode_frame(buf: bytes):
+    """Разбирает один полный RESP-кадр из buf.
+
+    Возвращает (value, consumed, complete):
+      value    - разобранное значение (str/int/list/None/True/Exception)
+      consumed - сколько байт занимает кадр
+      complete - False, если данных пока недостаточно для полного кадра
+    """
+    if not buf:
+        return None, 0, False
+    t = buf[0:1]
+    if t in (b"+", b"-", b":"):
+        i = buf.find(b"\r\n")
+        if i < 0:
+            return None, 0, False
+        body = buf[1:i]
+        if t == b"+":
+            return True, i + 2, True
+        if t == b"-":
+            return Exception(body.decode('utf-8', 'ignore')), i + 2, True
+        try:
+            return int(body), i + 2, True
+        except ValueError:
+            return None, 0, False
+    if t == b"$":
+        return _decode_bulk(buf)
+    if t == b"*":
+        return _decode_array(buf)
+    # inline-строка (в RESP-командах не встречается)
+    i = buf.find(b"\r\n")
+    if i < 0:
+        return None, 0, False
+    return buf[:i].decode('utf-8', 'ignore'), i + 2, True
+
+
+def _decode_bulk(buf: bytes):
+    i = buf.find(b"\r\n")
+    if i < 0:
+        return None, 0, False
+    try:
+        ln = int(buf[1:i])
+    except ValueError:
+        return None, 0, False
+    if ln < 0:
+        return None, i + 2, True
+    start = i + 2
+    end = start + ln
+    if len(buf) < end + 2:
+        return None, 0, False
+    return _unescape(buf[start:end]), end + 2, True
+
+
+def _decode_array(buf: bytes):
+    i = buf.find(b"\r\n")
+    if i < 0:
+        return None, 0, False
+    try:
+        n = int(buf[1:i])
+    except ValueError:
+        return None, 0, False
+    if n < 0:
+        return None, i + 2, True
+    pos = i + 2
+    items = []
+    for _ in range(n):
+        if pos >= len(buf):
+            return None, 0, False
+        item, consumed, complete = decode_frame(buf[pos:])
+        if not complete:
+            return None, 0, False
+        items.append(item)
+        pos += consumed
+    return items, pos, True
 
 
 def prepare_cmd(query:str):
@@ -116,13 +134,12 @@ class Driver(BaseDriver):
         self._redis_host, p = x.rsplit(":", 1)
         self._redis_port  = int(p)
         self._redis_timeout = 10
-        self._max_responses = 10
         self._multi = False
         self._conn: Optional[asyncio.StreamReader] = None
         self._read_task = None
         self._writer: Optional[asyncio.StreamWriter] = None
-        self._queue: asyncio.Queue[bytes] = asyncio.Queue()
-        self._waiting = False
+        self._pending: asyncio.Queue = asyncio.Queue()
+        self._buffer = b""
 
     @property
     def in_transaction(self)->bool:
@@ -132,9 +149,10 @@ class Driver(BaseDriver):
     async def begin(self):
         await self._before_open()
         self._conn, self._writer = await asyncio.open_connection(self._redis_host, self._redis_port)
+        self._buffer = b""
+        self._read_task = asyncio.create_task(self._read_loop())
         if self._redis_db!=0:
             await self.sql(f"select {self._redis_db}")
-        self._task = asyncio.create_task(self._read_loop())
 
     async def sql(self, query, one_row=False, row_factory=RowFactory.DICT):
         if not self.in_transaction:
@@ -146,54 +164,48 @@ class Driver(BaseDriver):
             self._multi = False
 
         data = prepare_cmd(query)
-
         self._writer.write(data.encode('utf-8'))
-        self._waiting = True
         await self._writer.drain()
 
-        # Ждём ответ
-        data, ret = b"", None
+        fut = asyncio.get_running_loop().create_future()
+        await self._pending.put(fut)
         try:
-            for _ in range(self._max_responses):
-                resp_chunk = await asyncio.wait_for(self._queue.get(), timeout=0.1)
-                if resp_chunk:
-                    data+=resp_chunk
-                ret, valid = decode_buf(data.decode('utf-8'))
-                if valid:
-                    break
-        except asyncio.TimeoutError:
-            ...
-        except Exception as e:
-            # Ошибка чтения — соединение, скорее всего, разорвано
+            ret = await asyncio.wait_for(fut, self._redis_timeout)
+            return ret
+        except Exception:
+            # ошибка запроса или таймаут — рвём соединение
             await self.rollback()
-            raise e
-        finally:
-            self._waiting = False
-        return ret
+            raise
 
     async def _read_loop(self) -> None:
         while self.in_transaction:
+            conn = self._conn
+            if conn is None:
+                break
             try:
-                buf = b""
-                while not self._conn.at_eof() and self.in_transaction:
-                    chunk = await self._conn.read(4096)
-                    if not chunk:
-                        break
-                    if self._waiting:
-                        await self._queue.put(chunk)
-                        buf = b""
-                    else:
-                        buf += chunk
-                        ret, valid = decode_buf(buf.decode('utf-8', errors='ignore'))
-                        if valid:
-                            buf = b""
-                            if isinstance(ret, list) and ret[0]=="message":
-                                del ret[0]
-                                await self._notify_callback(ret)
-            except Exception as e:
-                ...
-            await asyncio.sleep(0.1)
-
+                chunk = await conn.read(4096)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                break
+            if not chunk:
+                break
+            self._buffer += chunk
+            # разбираем все полные кадры из буфера
+            while True:
+                frame, consumed, complete = decode_frame(self._buffer)
+                if not complete:
+                    break
+                self._buffer = self._buffer[consumed:]
+                if isinstance(frame, list) and frame and frame[0] in ("message", "pmessage", "smessage"):
+                    await self._notify_callback(frame[1:])
+                else:
+                    fut = await self._pending.get()
+                    if not fut.done():
+                        if isinstance(frame, Exception):
+                            fut.set_exception(frame)
+                        else:
+                            fut.set_result(frame)
 
     async def commit(self):
         if not self.in_transaction:
@@ -212,6 +224,8 @@ class Driver(BaseDriver):
             await self._writer.wait_closed()
         finally:
             self._writer = None
+            if self._read_task is not None:
+                self._read_task.cancel()
             self._read_task = None
             await super().rollback()
 

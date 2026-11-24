@@ -48,6 +48,16 @@ class DB_ENV(UserDict):
 
         params.update(kwargs)
 
+        if connection == "":
+            self.data = params
+            self._connection_str =  ""
+        else:
+            self._parse_connection(connection, params)
+
+        self._context = None
+        self._on_commit = set()
+
+    def _parse_connection(self, connection, params):
         if "://" not in connection:
             connection = Config().db_connection(connection)
         if "{" in connection and connection.endswith("}"):
@@ -59,14 +69,14 @@ class DB_ENV(UserDict):
             if params:
                 p.update(params)
             params = p
+        self.data.update(params)
         self._connection_str = connection
-        self._context = None
-        self._on_commit = set()
-        self.data = params
 
     @property
     def connection_string(self):
         # возвращает строку соединения
+        if self._connection_str == "":
+            self._parse_connection("", self.data)
         return self._connection_str
 
     def on_commit(self, callback:Callable, subscribe=True):
@@ -153,7 +163,16 @@ class DB_ENV(UserDict):
         elif cmd:
             query = f"{cmd} {query}"
 
-        args = args + (self._context, CALLBACK(callback_function=log_callback, attribute_collection=self),)
+        need_db = True
+        for x in args:
+            if not DB.is_option(x):
+                break
+            elif isinstance(x, DB):
+                need_db = False
+                break
+        if need_db:
+            args += (self._context,)
+        args += (CALLBACK(callback_function=log_callback, attribute_collection=self),)
         ret = await sql(query,*args, **kwargs)
         return ret
 

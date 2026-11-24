@@ -90,4 +90,4 @@ async def env_test():
 
 if __name__ == '__main__':
     Config("test.toml")
-    run_async(env_test())
+    run_async(main())
