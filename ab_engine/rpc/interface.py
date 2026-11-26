@@ -24,7 +24,7 @@ class Caller:
     def __repr__(self) -> str:
         return self._rpc._name + self._n
 
-class RPCInterface(JSON_RPC):
+class RPCGroup(JSON_RPC):
 
     def __init__(self, name="", connection = None):
         super().__init__(connection)

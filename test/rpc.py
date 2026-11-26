@@ -78,12 +78,12 @@ async def main4():
         "db_ver":{
            "sql": "select version()",
            "ext": "ONE",
-           "interface": "private",
+           "group": "private",
             "help": "Версия PostgreSQL"
         },
         "hello": {
             "type":"self",
-            "interface": ["private","public"]
+            "group": ["private","public"]
         },
         "hello2":{
             "sql":"""
@@ -120,7 +120,7 @@ async def main4():
     except Exception as e:
         print("не нашли db_ver")
 
-    itf = RPCInterface(name="private")
+    itf = RPCGroup(name="private")
     print(itf.db_ver.help)
     x = await itf.db_ver()
     print(x)

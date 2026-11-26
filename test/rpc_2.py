@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from ab_engine import Config, register_rpc_list, call_json, call_rpc
-from ab_engine.rpc import RPCInterface
+from ab_engine.rpc import RPCGroup
 ## Дополнительные библиотеки, требуемые для теста. в реальном приложении могут быть использованы другие ###
 from starlette.applications import Starlette
 from starlette.routing import Route
@@ -37,7 +37,7 @@ async def tests():
         cfg.log(e)
     # создаем интерфейс для выполнения приватных методов
     cfg.log("Попытка отправить запрос себе","debug")
-    itf =  RPCInterface(name="private")
+    itf =  RPCGroup(name="private")
     cfg.log("Через web запрос к себе же (poroxy):")
     ret = await itf.web_hello()
     cfg.log(ret)
@@ -56,7 +56,7 @@ async def tests():
 
     # пример работы с valkey через функции интерфейса
     cfg.log("------------------------------------------------------------------")
-    itf = RPCInterface(name="valkey")
+    itf = RPCGroup(name="valkey")
     await itf.set(key="test_key", value=10)
     ret = await itf.get(key="test_key")
     cfg.log(f"test_key = {ret}")

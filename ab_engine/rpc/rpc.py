@@ -134,7 +134,7 @@ def register(name:Optional[str|Callable]=None,defs=None, help=None, **kwargs) ->
     return dummy
 
 
-async def call_rpc(name_of_rpc_method_for_call, current_rpc_environment_for_call=None, **kwargs):
+async def call_rpc(name_of_rpc_method_for_call, current_rpc_environment_for_call=None, /, **kwargs):
     """
     Выполняет вызов RPC
     :param current_rpc_environment_for_call: окружение, в котором будет выполняться метод
@@ -254,8 +254,8 @@ def register_list(defs:list | dict, self=None)->None:
             fn = getattr(self, x)
             PythonFnc(x, fn)
             continue
-        elif "interface" in fnc:
-            fn = fnc["interface"]
+        elif "group" in fnc:
+            fn = fnc["group"]
             if not isinstance(fn, list):
                 fn = [str(fn).strip()]
             if "" not in fn:
@@ -265,7 +265,6 @@ def register_list(defs:list | dict, self=None)->None:
             itf = fn if len(fn) > 0 else None
         else:
             itf = None
-
 
         if "sql" in fnc:
             if "ext" in fnc:
